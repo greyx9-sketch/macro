@@ -82,11 +82,19 @@ def _parse_event_time(value: str) -> Optional[datetime]:
 
 
 def _title_index() -> dict[tuple[str, str], Series]:
-    return {
-        (s.ff_country, s.ff_title): s
-        for s in series_mod.ff_mapped_series()
-        if s.ff_title
-    }
+    """(국가, 이벤트명) -> 지표. 정식 이름과 알려진 옛 이름을 모두 색인한다."""
+    index: dict[tuple[str, str], Series] = {}
+    for s in series_mod.ff_mapped_series():
+        if not s.ff_title:
+            continue
+        for title in (s.ff_title, *s.ff_aliases):
+            index[(s.ff_country, title)] = s
+    return index
+
+
+def _canonical_titles() -> set[str]:
+    """커버리지 보고에 쓸 정식 이름만. 별칭은 '없음' 경고 대상이 아니다."""
+    return {s.ff_title for s in series_mod.ff_mapped_series() if s.ff_title}
 
 
 @guarded(SOURCE)
@@ -120,7 +128,7 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
     index = _title_index()
     mapped = 0
     issues: list[str] = []
-    matched_titles: set[str] = set()
+    matched_ids: set[str] = set()
 
     for ev in events:
         title = (ev.get("title") or "").strip()
@@ -134,7 +142,11 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
             issues.append(f"{title}: 발표시각 파싱 실패 ({ev.get('date')!r})")
             continue
 
-        matched_titles.add(title)
+        # 별칭으로 잡혔을 수도 있으므로 제목이 아니라 지표 id 로 기록한다.
+        matched_ids.add(s.id)
+        if title != s.ff_title:
+            issues.append(f"'{s.name_ko}' 이 별칭 '{title}' 로 잡혔습니다 — "
+                          f"ForexFactory 가 이벤트명을 바꿨을 수 있습니다")
         ref_date = derive_ref_date(s, dt)
 
         actual = to_series_unit(s.unit, parse_raw_number(ev.get("actual")))
@@ -168,8 +180,10 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
     # --- 커버리지 보고 -----------------------------------------------------
     # ISM 은 매월 1·3영업일에만 나오므로 '이번 주에 없음'이 정상일 수 있다.
     # 그래도 무엇이 안 잡혔는지는 남겨야 나중에 매핑 오류를 발견할 수 있다.
-    expected = {t for (_c, t) in index}
-    missing = sorted(expected - matched_titles)
+    missing = sorted(
+        s.ff_title for s in series_mod.ff_mapped_series()
+        if s.ff_title and s.id not in matched_ids
+    )
     if missing:
         issues.append("이번 주 피드에 없던 지표(발표주가 아니면 정상): " + ", ".join(missing))
         # ff_title 오타는 '조용히 영원히 예측이 안 잡히는' 형태로 나타나 발견이 어렵다.
@@ -242,7 +256,8 @@ def suggest_mappings(conn, missing_titles: list[str], cutoff: float = 0.75) -> l
     if not pool:
         return []
 
-    known = {s.ff_title for s in series_mod.ff_mapped_series() if s.ff_title}
+    # 이미 매핑된 이름(별칭 포함)은 제안 대상에서 뺀다.
+    known = {t for (_c, t) in _title_index()}
     out: list[str] = []
     for title in missing_titles:
         close = [

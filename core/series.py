@@ -55,6 +55,12 @@ class Series:
     #   'div1000'  /1000 (건 -> 천, 천 -> 백만)
     transform: Optional[str] = None
 
+    # 이 계열이 반드시 만족해야 하는 계절조정 상태. 'SA' | 'NSA' | None.
+    # 지정하면 수집기가 FRED 계열 메타데이터를 조회해 실제로 그런지 검증하고,
+    # 다르면 해당 지표만 실패시킨다. 계절조정 여부는 값을 통째로 바꾸는 선택인데
+    # 계열 ID 만 봐서는 알 수 없으므로, 믿음이 아니라 코드가 보장하게 한다.
+    require_seasonal_adjustment: Optional[str] = None
+
     # FRED 가 아닌 소스
     ecos_stat: Optional[tuple[str, str, str]] = None  # (통계표, 주기, 항목코드)
     cds_country: Optional[str] = None  # worldgovernmentbonds URL 슬러그
@@ -63,6 +69,12 @@ class Series:
     # ForexFactory 이벤트 제목. None 이면 무료 컨센서스가 존재하지 않는 지표.
     ff_title: Optional[str] = None
     ff_country: str = "USD"
+
+    # 같은 이벤트의 다른 표기. ForexFactory 가 이벤트명을 바꾸면
+    # (예: 'ISM Non-Manufacturing PMI' -> 'ISM Services PMI') 매칭이 조용히 끊기는데,
+    # 피드는 지난 주를 다시 주지 않으므로 발견이 늦을수록 손실이 크다.
+    # 알려진 옛 이름을 미리 등록해 두면 어느 쪽으로 와도 잡힌다.
+    ff_aliases: tuple[str, ...] = field(default_factory=tuple)
 
     # 발표월과 기준월의 간격(개월). 캘린더 이벤트의 발표일에서 기준월을 역산할 때 쓴다.
     # **frequency == 'monthly' 인 지표에만 적용된다.** 주간/일간/이벤트성 지표는
@@ -123,11 +135,14 @@ _PRICES = [
         frequency="monthly",
         decimals=3,
         fred_id="PPIFIS",
-        # PPIFIS(계절조정)와 WPSFD4(계절조정 전) 중 엑셀 값과 맞는 쪽을 verify.py 가 가린다.
-        fred_alternatives=("WPSFD4", "PPIACO"),
+        # 계절조정된 값을 쓴다(사용자 요구). PPIFIS 가 SA 계열로 알려져 있지만
+        # 계열 ID 만으로는 확인할 수 없으므로 수집 시 메타데이터로 검증한다.
+        require_seasonal_adjustment="SA",
+        # 계절조정 전 대응 계열은 PPIFID 다. verify.py 가 대안으로 시험한다.
+        fred_alternatives=("PPIFID", "PPIACO"),
         revision_band=0.8,  # 발표 후 4개월간 개정. 실측 90분위 0.63
         ff_title=None,
-        note="최종수요 생산자물가지수.",
+        note="최종수요 생산자물가지수(계절조정).",
     ),
     Series(
         id="pce_yoy",
@@ -247,6 +262,9 @@ _SURVEY = [
         decimals=1,
         fred_id=None,
         ff_title="ISM Manufacturing PMI",
+        # 'ISM Manufacturing Prices' 는 별칭이 아니다 — 가격지불 하위지수라
+        # 헤드라인 PMI 와 다른 값이다. 별칭에 넣으면 엉뚱한 값이 들어간다.
+        ff_aliases=("ISM Mfg PMI",),
         higher_is_better=True,
         note="50 기준. ISM 라이선스 정책상 FRED 에 없어 캘린더 피드로만 수집한다.",
     ),
@@ -259,6 +277,9 @@ _SURVEY = [
         decimals=1,
         fred_id=None,
         ff_title="ISM Services PMI",
+        # ForexFactory 가 실제로 개명한 전례가 있는 항목이다.
+        # 엑셀의 출처 URL(ism-non-manufacturing-pmi-176)도 옛 이름을 쓴다.
+        ff_aliases=("ISM Non-Manufacturing PMI",),
         higher_is_better=True,
         note="50 기준. 매월 셋째 영업일 발표.",
     ),
