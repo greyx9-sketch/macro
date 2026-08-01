@@ -76,10 +76,14 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/*.csv site/data/dashboard.json
+          # 커밋 여부는 **CSV 기준으로만** 판단한다.
+          # dashboard.json 에는 generatedAt 타임스탬프가 들어 있어 내용이 같아도 매번 바뀐다.
+          # 그걸 기준으로 삼으면 새 데이터가 하나도 없는 날에도 커밋이 쌓인다.
+          git add data/*.csv
           if git diff --staged --quiet; then
-            echo "변경 없음 — 커밋 생략"
+            echo "새 데이터 없음 — 커밋 생략 (Pages 배포는 계속 진행)"
           else
+            git add site/data/dashboard.json
             git commit -m "데이터 갱신 $(date -u +'%Y-%m-%d %H:%M UTC')"
             git push
           fi
