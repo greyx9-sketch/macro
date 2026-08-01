@@ -86,6 +86,56 @@ def check_monotonic_dates(series: Series, ref_dates: list[str]) -> list[Issue]:
     return issues
 
 
+def check_release_vs_observation(
+    series: Series,
+    releases: dict[str, Optional[float]],
+    observations: dict[str, Optional[float]],
+    tolerance_multiple: float = 3.0,
+    max_violation_share: float = 0.02,
+) -> list[Issue]:
+    """발표 실제값과 관측치가 통상 개정 폭 안에서 일치하는지 본다.
+
+    범위 검사만으로는 못 잡는 계열의 버그를 잡는다.
+    실제로 최초발표 '수준값'을 차분하다 NFP 2010-01 이 -1,383천명(정답 -6천명),
+    PCE 가 -8.8%(정답 2.4%)로 저장된 적이 있는데, 두 값 모두 단위 범위 안이라
+    기존 검사에 걸리지 않았다.
+
+    ★ 개별 이상치가 아니라 '계열 전체가 틀렸는지' 를 본다 ★
+      개별 시점을 하나씩 경고하면 진짜 개정이 큰 시점(2020년 실업수당은
+      최초발표와 개정치가 702천건까지 벌어졌다)이 경고를 채워 버린다.
+      계산 경로가 틀리면 거의 모든 시점이 어긋나므로(NFP 버그는 437건 중 436건),
+      **위반 비율**로 판정하면 둘을 깔끔하게 가른다.
+
+    개정 폭을 모르는 지표(revision_band=0)는 건너뛴다.
+    """
+    if series.revision_band <= 0:
+        return []
+
+    limit = series.revision_band * tolerance_multiple
+    pairs = [
+        (d, r, observations[d])
+        for d, r in releases.items()
+        if r is not None and observations.get(d) is not None
+    ]
+    if len(pairs) < 10:  # 표본이 적으면 비율이 의미 없다
+        return []
+
+    violations = [(d, r, o) for d, r, o in pairs if abs(r - o) > limit]
+    share = len(violations) / len(pairs)
+    if share <= max_violation_share:
+        return []
+
+    worst = max(violations, key=lambda x: abs(x[1] - x[2]))
+    return [
+        Issue(
+            series.id, worst[0], "release-vs-observation",
+            f"발표값과 관측치가 {len(violations)}/{len(pairs)}건({share:.0%})에서 "
+            f"개정 폭({limit:.4g})을 넘게 어긋남 — 계산 경로가 틀렸을 가능성이 높음. "
+            f"최악: {worst[0]} 발표={worst[1]:.4g} 관측={worst[2]:.4g}",
+        )
+    ]
+
+
 def validate_series_points(
     series: Series, points: list[tuple[str, Optional[float]]]
 ) -> list[Issue]:

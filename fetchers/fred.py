@@ -37,6 +37,16 @@ SOURCE = "fred"
 # FRED 는 분당 120회를 허용한다. 24회 남짓이라 여유롭지만 매너 있게 간격을 둔다.
 _THROTTLE_SEC = 0.15
 
+# 여러 기간을 엮어 계산하는 변환.
+#
+# ★ 이런 변환에는 최초발표값(vintage) 을 쓰면 안 된다 ★
+#   최초발표 '수준값' 들은 서로 다른 시점에 공표됐고 그 사이에 벤치마크 개정이 끼어든다.
+#   기준이 다른 두 수준값을 차분하면 실재하지 않는 숫자가 나온다.
+#   실제로 NFP 에서 2026-01 이 -899천명(현실에 없는 값), 2026-06 이 -17천명
+#   (정답 57천명) 으로 계산됐다.
+#   반면 단순 배율 변환(div100/div1000)이나 무변환은 관측치 하나로 끝나므로 안전하다.
+CROSS_PERIOD_TRANSFORMS = {"yoy", "mom", "diff"}
+
 
 def api_key() -> str:
     key = os.environ.get("FRED_API_KEY", "").strip()
@@ -184,20 +194,25 @@ def series_points(
     except FetchError:
         raw_initial = []
 
-    if raw_initial:
-        # 변환(YoY/차분)은 계열 전체가 필요하므로 값만 뽑아 동일 파이프라인을 태운다.
-        release_by_date = {d: rt for d, _, rt in raw_initial}
-        transformed = apply_transform([(d, v) for d, v, _ in raw_initial], s.transform)
-        for d, v in transformed:
-            ref = normalize_ref_date(d, s.frequency)
-            initial[ref] = (v, release_by_date.get(d))
+    # 발표일은 vintage 응답의 realtime_start 가 준다. 값을 쓰지 않는 경우에도
+    # 발표일 자체는 유효하므로 따로 뽑아 둔다.
+    release_by_ref: dict[str, Optional[str]] = {
+        normalize_ref_date(d, s.frequency): rt for d, _v, rt in raw_initial
+    }
 
-    # vintage 이력이 없는 계열도 있고, FRED 가 응답을 바꿀 수도 있다.
-    # 그럴 때 발표 실제값이 통째로 비어 화면이 '—' 로 도배되면 안 되므로
-    # 현재값으로 메운다. 최초발표값이 있으면 그쪽이 우선이다.
+    if raw_initial and s.transform not in CROSS_PERIOD_TRANSFORMS:
+        # 관측치 하나로 끝나는 변환만 최초발표값을 쓴다.
+        for d, v, rt in raw_initial:
+            ref = normalize_ref_date(d, s.frequency)
+            initial[ref] = (apply_transform([(d, v)], s.transform)[0][1], rt)
+
+    # 다음 두 경우에 현재값으로 메운다.
+    #   - 기간을 엮는 변환이라 최초발표값을 쓸 수 없는 계열 전체
+    #   - vintage 이력이 없거나 응답이 비어 최초발표값을 못 얻은 시점
+    # 어느 쪽이든 발표 실제값이 비어 화면이 '—' 로 도배되면 안 된다.
     for ref_date, value in current:
         if value is not None and ref_date not in initial:
-            initial[ref_date] = (value, None)
+            initial[ref_date] = (value, release_by_ref.get(ref_date))
 
     return {"current": current, "initial": initial}
 

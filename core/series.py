@@ -110,7 +110,9 @@ _PRICES = [
         frequency="monthly",
         decimals=3,
         fred_id="CPIAUCNS",  # 엑셀 출처가 'cpi-index, n.s.a.' 이므로 계절조정 전 계열
-        revision_band=0.005,  # 계절조정 전 CPI 는 개정되지 않는다. 엑셀 반올림 오차만
+        # 전 이력(1990~) 기준 |발표값-관측치| 99분위 0.10, 최대 0.20.
+        # 엑셀 4년치만 보고 0.005 로 잡았다가 2000년대 개정에 전부 걸렸다.
+        revision_band=0.15,
         ff_title=None,  # ForexFactory 는 지수 레벨 컨센서스를 제공하지 않는다
         note="계절조정 전(NSA) 소비자물가지수. 1982-84=100.",
     ),
@@ -140,7 +142,7 @@ _PRICES = [
         require_seasonal_adjustment="SA",
         # 계절조정 전 대응 계열은 PPIFID 다. verify.py 가 대안으로 시험한다.
         fred_alternatives=("PPIFID", "PPIACO"),
-        revision_band=0.8,  # 발표 후 4개월간 개정. 실측 90분위 0.63
+        revision_band=1.0,  # 발표 후 4개월간 개정. 전 이력 99분위 0.68, 최대 0.78
         ff_title=None,
         note="최종수요 생산자물가지수(계절조정).",
     ),
@@ -200,7 +202,7 @@ _EMPLOYMENT = [
         decimals=3,
         fred_id="UNRATE",
         transform="div100",  # FRED 는 4.2 로 준다 -> 0.042
-        revision_band=0.001,  # 계절조정계수 재추정으로 0.1%p 수준 변동
+        revision_band=0.003,  # 계절조정계수 재추정. 전 이력 최대 0.3%p
         ff_title="Unemployment Rate",
         higher_is_better=False,
     ),
@@ -227,7 +229,10 @@ _EMPLOYMENT = [
         decimals=0,
         fred_id="ICSA",
         transform="div1000",  # FRED 는 건수(187000) -> 187 천 건
-        revision_band=5.0,  # 매주 직전치가 수정된다
+        # 매주 직전치가 수정된다. 전 이력 99분위 75천건.
+        # 2020년 3~4월에는 최초발표와 개정치가 702천건까지 벌어졌는데,
+        # 그건 실제 혼란이지 오류가 아니다 — 비율 기반 판정이 이를 걸러낸다.
+        revision_band=112.0,
         ff_title="Unemployment Claims",
         ref_lag_months=0,  # 주간: 발표일(목)에서 직전 토요일을 기준시점으로 역산
         higher_is_better=False,
@@ -241,7 +246,7 @@ _EMPLOYMENT = [
         decimals=3,
         fred_id="JTSJOL",
         transform="div1000",  # FRED 는 천 건(7594) -> 7.594 백만
-        revision_band=0.55,  # 표본 조사라 개정 폭이 크다
+        revision_band=1.06,  # 표본 조사라 개정 폭이 크다. 전 이력 99분위 0.71
         ff_title="JOLTS Job Openings",
         ref_lag_months=2,  # 유일하게 2개월 지연 발표
         higher_is_better=True,

@@ -122,8 +122,10 @@ def main() -> int:
     targets = [BY_ID[args.series]] if args.series else [s for s in ALL_SERIES if s.fred_id]
 
     src = "이미 수집된 DB 값" if args.offline else "FRED API 값"
-    print(f"엑셀에 기록된 '실제' 값과 {src}을 대조합니다.")
-    print("불일치는 곧 (a) 매핑 오류 이거나 (b) 엑셀의 입력 오류입니다.\n")
+    print(f"엑셀에 남아 있는 '실제' 값과 {src}을 대조합니다.")
+    print("엑셀은 손으로 다른 출처에서 옮긴 값이므로 독립적인 대조군 역할을 한다.")
+    print("맞으면 계열 매핑이 옳다는 증거이고, 틀리면 (a) 매핑 오류 (b) 엑셀 입력 오류다.")
+    print("과거 전체 대조 결과는 git 이력에 있다: git show a21128e:data/releases.csv\n")
 
     header = f"{'지표':<22}{'일치':>6}{'대상':>6}{'일치율':>8}   판정"
     print(header)
@@ -135,7 +137,9 @@ def main() -> int:
     for s in targets:
         excel = excel_actuals(conn, s.id)
         if not excel:
-            print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   엑셀 데이터 없음")
+            # 권위 있는 소스가 해당 기준시점을 모두 채우면 엑셀 행은 남지 않는다.
+            # 이것이 정상적인 종착점이다 — 비교할 대상이 없다는 뜻이지 문제가 아니다.
+            print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   권위 소스가 전부 인수함")
             continue
 
         try:

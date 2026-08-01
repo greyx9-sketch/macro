@@ -41,6 +41,29 @@ SOURCES = [
 ]
 
 
+def cross_check(conn) -> list[str]:
+    """전 지표에 대해 발표 실제값과 관측치를 대조한다."""
+    from core.series import ALL_SERIES
+    from core.validate import check_release_vs_observation
+
+    out: list[str] = []
+    for s in ALL_SERIES:
+        rel = {
+            r["ref_date"]: r["actual"]
+            for r in conn.execute(
+                "SELECT ref_date, actual FROM releases WHERE series_id = ?", (s.id,)
+            )
+        }
+        obs = {
+            r["ref_date"]: r["value"]
+            for r in conn.execute(
+                "SELECT ref_date, value FROM observations WHERE series_id = ?", (s.id,)
+            )
+        }
+        out.extend(str(i) for i in check_release_vs_observation(s, rel, obs))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="매크로 지표 일일 수집")
     ap.add_argument("--only", action="append", help="이 소스만 실행 (반복 지정 가능)")
@@ -83,6 +106,16 @@ def main() -> int:
         # 소스마다 FOMC/금통위 날짜 표기가 하루씩 다르므로 병합한다.
         for line in db_mod.reconcile_event_releases(conn):
             print(f"\n▶ {line}")
+
+        # 발표값과 관측치가 서로 크게 어긋나지 않는지 본다.
+        # 단위 범위 검사로는 못 잡는 '계산 경로가 틀린' 버그를 여기서 잡는다.
+        cross = cross_check(conn)
+        if cross:
+            print(f"\n▶ 발표값↔관측치 불일치 {len(cross)}건")
+            for line in cross[:10]:
+                print(f"   · {line}")
+            if len(cross) > 10:
+                print(f"   · … 외 {len(cross) - 10}건")
 
         # 수동 오버라이드는 항상 마지막에 — 자동 수집값을 덮어써야 하므로.
         n = db_mod.apply_overrides(conn)
