@@ -1,0 +1,16 @@
+# 필수 의존성: 없음.
+#
+# 수집·변환·엑셀 임포트·JSON 내보내기는 전부 파이썬 표준 라이브러리로 동작한다
+# (urllib, sqlite3, zipfile, xml.etree). 프론트엔드도 빌드 체인이 없다.
+# 매일 자동 실행되는 시스템이라 의존성이 적을수록 몇 년 뒤 조용히 깨질 확률이 낮다.
+#
+# 선택 의존성 — CDS 5년물 수집에만 필요하다.
+# worldgovernmentbonds.com 이 값을 클라이언트에서 렌더링하고 내부 API 는 403 이라
+# headless 브라우저 없이는 가져올 수 없다. 설치하지 않으면 CDS만 건너뛴다.
+#
+#   pip install playwright
+#   playwright install chromium
+#
+# 아래 줄은 의도적으로 주석 처리되어 있다. `pip install -r requirements.txt` 가
+# 브라우저까지 끌어오지 않도록 — CDS 가 필요한 사람만 위 두 줄을 직접 실행한다.
+# playwright>=1.40

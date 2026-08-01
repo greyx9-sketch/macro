@@ -1,0 +1,7 @@
+source,started_at,finished_at,status,rows,message
+forexfactory,2026-08-01T17:58:22+00:00,2026-08-01T17:58:23+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
+fred,2026-08-01T17:58:23+00:00,2026-08-01T17:58:23+00:00,failed,0,FetchError: FRED_API_KEY 환경변수가 없습니다. https://fredaccount.stlouisfed.org/apikeys 에서 무료 발급 후 설정하세요.
+ecos,2026-08-01T17:58:23+00:00,2026-08-01T17:58:23+00:00,failed,0,FetchError: ECOS_API_KEY 환경변수가 없습니다. https://ecos.bok.or.kr/api/ 에서 무료 발급하세요(승인까지 최대 1일).
+cds,2026-08-01T18:01:34+00:00,2026-08-01T18:02:37+00:00,ok,2,"2/2 국가 수집, 2건"
+cds,2026-08-01T18:04:47+00:00,2026-08-01T18:05:46+00:00,ok,8311,"2/2 국가 수집, 8311건"
+cds,2026-08-01T18:09:15+00:00,2026-08-01T18:10:14+00:00,ok,8311,"2/2 국가 수집, 8311건"

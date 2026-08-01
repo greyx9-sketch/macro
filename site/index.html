@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>매크로 지표 대시보드</title>
+  <meta name="description" content="미국·한국 거시지표 17종 자동 수집 대시보드">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>📊</text></svg>">
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>매크로 지표 대시보드</h1>
+      <div class="topbar-actions">
+        <button class="ghost" id="theme-toggle" type="button" title="라이트/다크 전환">테마</button>
+      </div>
+    </div>
+    <p class="subtitle" id="subtitle">불러오는 중…</p>
+
+    <div id="app">
+      <div class="loading">데이터를 불러오는 중입니다…</div>
+    </div>
+
+    <footer class="foot">
+      <div>
+        출처 — 실제값: FRED(세인트루이스 연은), 한국은행 ECOS ·
+        예측(컨센서스)·ISM PMI: ForexFactory 캘린더 ·
+        CDS 5년물: worldgovernmentbonds.com ·
+        과거 데이터: 사용자 엑셀 백필
+      </div>
+      <div>
+        색 규칙은 원본 엑셀을 따릅니다 — 상승 빨강, 하락 파랑, 보합 검정.
+        방향은 ▲▼ 기호로도 표시되므로 색만으로 판단하지 않아도 됩니다.
+      </div>
+    </footer>
+  </div>
+
+  <dialog class="detail" id="detail">
+    <div class="detail-head">
+      <div>
+        <h2 class="detail-title" id="d-title"></h2>
+        <p class="detail-note" id="d-note"></p>
+      </div>
+      <button class="ghost" id="d-close" type="button">닫기</button>
+    </div>
+    <div class="detail-body" id="d-body"></div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

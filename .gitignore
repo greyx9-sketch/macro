@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 작업용 SQLite 는 커밋하지 않는다. data/*.csv 에서 언제든 재생성되는 파생물이고,
+# 바이너리라 git 이 델타 압축을 못해 커밋마다 전체 복사본이 쌓인다.
+# 영속 형식은 CSV 다 — core/store.py 참조.
+data/macro.sqlite
+data/macro.sqlite-wal
+data/macro.sqlite-shm
+
+.DS_Store
+Thumbs.db

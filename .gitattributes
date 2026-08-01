@@ -1,0 +1,17 @@
+# 줄바꿈은 저장소 전체에서 LF 로 고정한다.
+#
+# 이 설정이 없으면 Windows 로컬은 CRLF, GitHub Actions(Linux) 는 LF 로 쓰기 때문에
+# 양쪽이 서로 뒤집어 놓는다. 특히 data/*.csv 는 core/store.py 가 항상 LF 로 쓰는데
+# git 이 체크아웃 때 CRLF 로 바꿔 놓으면 **매 실행마다 파일 전체가 변경된 것으로 잡힌다.**
+# 그러면 '하루치 변경이 몇 줄 diff 로 남는다'는 CSV 저장 설계가 통째로 무의미해진다.
+* text=auto eol=lf
+
+# 데이터 파일은 diff 가 곧 감사 로그이므로 명시적으로 못박는다.
+data/*.csv        text eol=lf
+site/data/*.json  text eol=lf
+
+# 바이너리
+*.xlsm binary
+*.xlsx binary
+*.png  binary
+*.sqlite binary
