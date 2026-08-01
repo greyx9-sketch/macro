@@ -187,7 +187,24 @@ def collect(conn, *, dry_run: bool = False, start: str = "1990-01-01") -> FetchR
 
         # 최초발표값과 발표일 -> releases 의 기본값.
         # 캘린더가 나중에 같은 행을 채우더라도 upsert_release 가 필드별로 병합한다.
-        for ref_date, (value, release_date) in result["initial"].items():
+        initial = result["initial"]
+
+        if s.frequency == "event":
+            # 정책금리(DFEDTARU)는 일별 계열로 오지만 '발표'는 FOMC 때만 일어난다.
+            # 매일을 발표로 기록하면 최신 발표가 오늘 날짜가 되어 FOMC 이벤트가 묻히고,
+            # 예측·이전 값이 붙어 있던 진짜 발표 행과도 어긋난다.
+            # ECOS 수집기와 같은 규칙으로 값이 바뀐 시점만 남긴다.
+            change_points: dict[str, tuple] = {}
+            prev_val: Optional[float] = None
+            for ref_date, value in current:
+                if value is None:
+                    continue
+                if prev_val is None or abs(value - prev_val) > 1e-12:
+                    change_points[ref_date] = (value, ref_date)
+                prev_val = value
+            initial = change_points
+
+        for ref_date, (value, release_date) in initial.items():
             if value is None and release_date is None:
                 continue
             if not dry_run:

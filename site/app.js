@@ -351,11 +351,15 @@ function freshness(data) {
     const ageTxt = Number.isFinite(ageH)
       ? (ageH < 1 ? '방금 전' : ageH < 48 ? Math.round(ageH) + '시간 전' : Math.round(ageH / 24) + '일 전')
       : '기록 없음';
+    // 검증 경고가 수십 건 붙으면 메시지가 화면을 뒤덮어 정작 상태를 못 읽게 된다.
+    // 요약만 보여주고 전문은 title 속성으로 넘긴다.
+    const full = s.message || '';
+    const short = full.length > 160 ? full.slice(0, 160) + ' …' : full;
     return `<div class="src-row">
       <span class="src-name">${esc(s.source)}</span>
       <span class="badge ${cls}">${label}</span>
       <span class="src-when">${esc(ageTxt)}</span>
-      <span class="src-msg">${esc(s.message || '')}</span>
+      <span class="src-msg" title="${esc(full)}">${esc(short)}</span>
     </div>`;
   }).join('');
   return `<div class="freshness"><h2>수집 상태</h2>${rows}</div>`;

@@ -70,6 +70,20 @@ def fred_values(s: Series, fred_id: str, key: str) -> dict[str, Optional[float]]
     }
 
 
+def stored_values(conn, series_id: str) -> dict[str, Optional[float]]:
+    """이미 수집돼 DB(=커밋된 CSV)에 들어있는 FRED 관측치.
+
+    API 키 없이도 검증할 수 있게 하는 경로다. 저장소를 클론한 사람이
+    '자동 수집이 엑셀을 제대로 대체했는가'를 네트워크 없이 확인할 수 있어야 한다.
+    """
+    rows = conn.execute(
+        "SELECT ref_date, value FROM observations"
+        " WHERE series_id = ? AND source = 'fred' AND value IS NOT NULL",
+        (series_id,),
+    ).fetchall()
+    return {r["ref_date"]: r["value"] for r in rows}
+
+
 def compare(
     s: Series, excel: dict[str, float], fred_map: dict[str, Optional[float]]
 ) -> tuple[int, int, list[tuple[str, float, Optional[float]]]]:
@@ -91,18 +105,24 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="엑셀 ↔ FRED 대조 검증")
     ap.add_argument("--series", help="이 지표만 검증")
     ap.add_argument("--show", type=int, default=6, help="지표당 출력할 불일치 개수")
+    ap.add_argument("--offline", action="store_true",
+                    help="API 를 부르지 않고 이미 수집된 DB 값과 대조한다")
     args = ap.parse_args()
 
-    try:
-        key = fred.api_key()
-    except FetchError as exc:
-        print(f"{exc}", file=sys.stderr)
-        return 2
+    key: Optional[str] = None
+    if not args.offline:
+        try:
+            key = fred.api_key()
+        except FetchError as exc:
+            print(f"{exc}\n", file=sys.stderr)
+            print("이미 수집된 값과 대조하려면 --offline 을 쓰세요.", file=sys.stderr)
+            return 2
 
     conn = db_mod.connect()
     targets = [BY_ID[args.series]] if args.series else [s for s in ALL_SERIES if s.fred_id]
 
-    print("엑셀에 기록된 '실제' 값과 FRED 값을 대조합니다.")
+    src = "이미 수집된 DB 값" if args.offline else "FRED API 값"
+    print(f"엑셀에 기록된 '실제' 값과 {src}을 대조합니다.")
     print("불일치는 곧 (a) 매핑 오류 이거나 (b) 엑셀의 입력 오류입니다.\n")
 
     header = f"{'지표':<22}{'일치':>6}{'대상':>6}{'일치율':>8}   판정"
@@ -119,21 +139,39 @@ def main() -> int:
             continue
 
         try:
-            fmap = fred_values(s, s.fred_id, key)
+            fmap = (stored_values(conn, s.id) if args.offline
+                    else fred_values(s, s.fred_id, key))
         except Exception as exc:  # noqa: BLE001
             print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   FRED 오류: {exc}")
             total_bad += 1
             continue
 
+        if not fmap:
+            print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   수집된 FRED 값 없음")
+            continue
+
         matched, total, mismatches = compare(s, excel, fmap)
         rate = matched / total if total else 0.0
-        verdict = "정상" if rate >= 0.9 else ("확인 필요" if rate >= 0.5 else "매핑 의심")
-        if rate < 0.9:
+
+        # ★ 정확 일치율만으로 판정하면 안 된다. ★
+        # 엑셀에는 *발표 당시* 값이, FRED 에는 *개정된 현재* 값이 들어 있다.
+        # NFP 는 두 번 개정되므로 일치율이 낮은 게 정상이다 — 매핑 오류가 아니다.
+        # 차이의 크기가 그 지표의 통상 개정 폭 안에 있으면 매핑은 옳다고 본다.
+        diffs = sorted(abs(e - f) for _d, e, f in mismatches if f is not None)
+        median_diff = diffs[len(diffs) // 2] if diffs else 0.0
+
+        if rate >= 0.9:
+            verdict = "정상"
+        elif s.revision_band > 0 and median_diff <= s.revision_band:
+            verdict = f"개정 차이 (매핑 정상, 중앙값 {median_diff:.4g})"
+        else:
+            verdict = f"조사 필요 (중앙값 {median_diff:.4g})"
             total_bad += 1
+
         print(f"{s.name_ko:<22}{matched:>6}{total:>6}{rate:>7.0%}   {verdict}")
 
-        # 매핑이 의심스러우면 대안 계열도 시험한다.
-        if rate < 0.9 and s.fred_alternatives:
+        # 매핑이 의심스러우면 대안 계열도 시험한다. (API 접근이 필요하다)
+        if rate < 0.9 and s.fred_alternatives and not args.offline:
             for alt in s.fred_alternatives:
                 try:
                     alt_map = fred_values(s, alt, key)
@@ -161,10 +199,11 @@ def main() -> int:
                 print(f"   … 외 {len(mism) - args.show}건")
 
     print("\n" + "=" * 70)
+    print("'개정 차이' 는 정상입니다 — 엑셀은 발표 당시 값, FRED 는 개정된 현재 값입니다.")
     if total_bad == 0:
-        print("모든 FRED 계열이 엑셀과 일치합니다. 매핑이 정확합니다.")
+        print("모든 FRED 계열의 매핑이 확인되었습니다.")
     else:
-        print(f"{total_bad}개 지표에서 불일치가 있습니다. 위 상세를 확인하세요.")
+        print(f"{total_bad}개 지표는 개정으로 설명되지 않습니다. 위 상세를 확인하세요.")
         print("엑셀 쪽 입력 오류라면 자동 수집값이 옳습니다 — 그것이 이 프로젝트의 목적입니다.")
     conn.close()
     return 0

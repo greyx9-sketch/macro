@@ -36,6 +36,23 @@ MAX_POINTS = 1200
 MAX_RELEASES = 60
 
 
+def collapse_steps(points: list[dict]) -> list[dict]:
+    """연속으로 같은 값이 이어지는 구간을 접는다.
+
+    기준금리는 일별 계열로 오지만 실제로는 계단 함수다(한국은행 ECOS 9,707일 =
+    금리 변경 60회). 평평한 구간을 전부 내보내면 JSON 만 커지고 그림은 똑같다.
+    각 구간의 첫 점과 마지막 점만 남기면 계단 모양이 그대로 보존된다.
+    """
+    if len(points) < 3:
+        return points
+    out = [points[0]]
+    for i in range(1, len(points) - 1):
+        if points[i]["v"] != points[i - 1]["v"] or points[i]["v"] != points[i + 1]["v"]:
+            out.append(points[i])
+    out.append(points[-1])
+    return out
+
+
 def downsample(points: list[dict], limit: int = MAX_POINTS) -> list[dict]:
     """시간순 관측치를 전 구간에 걸쳐 균등하게 솎아낸다.
 
@@ -132,13 +149,14 @@ def build(conn) -> dict:
 
         obs_rows = db_mod.observations_for(conn, s.id)  # 전량 — 자르지 않는다
         # 차트는 시간순이어야 하므로 뒤집는다.
-        observations = downsample(
-            [
-                {"d": r["ref_date"], "v": r["value"]}
-                for r in reversed(obs_rows)
-                if r["value"] is not None
-            ]
-        )
+        points = [
+            {"d": r["ref_date"], "v": r["value"]}
+            for r in reversed(obs_rows)
+            if r["value"] is not None
+        ]
+        if s.frequency == "event":
+            points = collapse_steps(points)  # 정책금리는 계단 함수다
+        observations = downsample(points)
         # FRED/ECOS 수집을 아직 안 돌린 상태(API 키 미설정)에서는 observations 가 비어 있다.
         # 그 경우 엑셀에서 온 발표값으로 시계열을 대신 만들어 차트가 비지 않게 한다.
         # 값의 출처가 다르므로 프론트엔드에 알려 준다.

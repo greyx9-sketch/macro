@@ -71,6 +71,13 @@ class Series:
     # (발표 2026-08 / 기준 2026-06). 이 값을 틀리면 예측이 엉뚱한 달에 붙는다.
     ref_lag_months: int = 1
 
+    # 이 지표가 발표 후 개정되는 통상적인 폭(저장 단위 기준).
+    # verify.py 가 '매핑 오류'와 '개정 차이'를 구분하는 데 쓴다.
+    #   엑셀에는 *발표 당시* 값이 적혀 있고 FRED 는 *개정된 현재* 값을 준다.
+    #   따라서 둘의 차이는 대부분 정상이며, 개정 폭 안에 들어오면 매핑은 옳은 것이다.
+    # 0 = 개정되지 않는 지표(시장금리 등). 여기서 차이가 나면 진짜 문제다.
+    revision_band: float = 0.0
+
     # --- 표시 --------------------------------------------------------------
     # 값이 클수록 경제에 긍정적인가? 서프라이즈 해석에만 쓰이고 색상에는 쓰지 않는다.
     higher_is_better: Optional[bool] = None
@@ -91,6 +98,7 @@ _PRICES = [
         frequency="monthly",
         decimals=3,
         fred_id="CPIAUCNS",  # 엑셀 출처가 'cpi-index, n.s.a.' 이므로 계절조정 전 계열
+        revision_band=0.005,  # 계절조정 전 CPI 는 개정되지 않는다. 엑셀 반올림 오차만
         ff_title=None,  # ForexFactory 는 지수 레벨 컨센서스를 제공하지 않는다
         note="계절조정 전(NSA) 소비자물가지수. 1982-84=100.",
     ),
@@ -103,6 +111,7 @@ _PRICES = [
         decimals=3,
         fred_id="CPIAUCNS",
         transform="yoy",
+        revision_band=0.0005,  # 반올림 오차만
         ff_title="CPI y/y",
         higher_is_better=False,
     ),
@@ -116,6 +125,7 @@ _PRICES = [
         fred_id="PPIFIS",
         # PPIFIS(계절조정)와 WPSFD4(계절조정 전) 중 엑셀 값과 맞는 쪽을 verify.py 가 가린다.
         fred_alternatives=("WPSFD4", "PPIACO"),
+        revision_band=0.8,  # 발표 후 4개월간 개정. 실측 90분위 0.63
         ff_title=None,
         note="최종수요 생산자물가지수.",
     ),
@@ -128,6 +138,7 @@ _PRICES = [
         decimals=3,
         fred_id="PCEPI",
         transform="yoy",
+        revision_band=0.004,  # PCE 는 연례 개정 폭이 크다
         ff_title=None,  # FF 는 m/m 만 제공. y/y 컨센서스 없음.
         higher_is_better=False,
     ),
@@ -140,6 +151,7 @@ _PRICES = [
         decimals=3,
         fred_id="PCEPILFE",
         transform="yoy",
+        revision_band=0.004,
         ff_title=None,
         higher_is_better=False,
         note="식품·에너지 제외. 연준이 실질적으로 보는 물가 지표.",
@@ -159,6 +171,7 @@ _EMPLOYMENT = [
         decimals=0,
         fred_id="PAYEMS",
         transform="diff",  # PAYEMS 는 수준(천 명), 발표되는 값은 전월차분
+        revision_band=200.0,  # 2회 개정 + 연례 벤치마크 개정. 실측 최대 194천명
         ff_title="Non-Farm Employment Change",
         higher_is_better=True,
         note="일자리 창출. 발표 후 2회 개정된다 — 개정 이력은 vintages 로 추적.",
@@ -172,6 +185,7 @@ _EMPLOYMENT = [
         decimals=3,
         fred_id="UNRATE",
         transform="div100",  # FRED 는 4.2 로 준다 -> 0.042
+        revision_band=0.001,  # 계절조정계수 재추정으로 0.1%p 수준 변동
         ff_title="Unemployment Rate",
         higher_is_better=False,
     ),
@@ -184,6 +198,7 @@ _EMPLOYMENT = [
         decimals=4,
         fred_id="CES0500000003",
         transform="mom",
+        revision_band=0.002,  # 수준값 개정이 전월비에 그대로 반영된다
         ff_title="Average Hourly Earnings m/m",
         higher_is_better=None,
         note="민간 전체 시간당 평균임금. 임금발 물가압력 지표.",
@@ -197,6 +212,7 @@ _EMPLOYMENT = [
         decimals=0,
         fred_id="ICSA",
         transform="div1000",  # FRED 는 건수(187000) -> 187 천 건
+        revision_band=5.0,  # 매주 직전치가 수정된다
         ff_title="Unemployment Claims",
         ref_lag_months=0,  # 주간: 발표일(목)에서 직전 토요일을 기준시점으로 역산
         higher_is_better=False,
@@ -210,6 +226,7 @@ _EMPLOYMENT = [
         decimals=3,
         fred_id="JTSJOL",
         transform="div1000",  # FRED 는 천 건(7594) -> 7.594 백만
+        revision_band=0.55,  # 표본 조사라 개정 폭이 크다
         ff_title="JOLTS Job Openings",
         ref_lag_months=2,  # 유일하게 2개월 지연 발표
         higher_is_better=True,
@@ -288,9 +305,14 @@ _FINANCE = [
         frequency="daily",
         decimals=2,
         fred_id="T10Y2Y",
+        # 시장금리는 개정되지 않는다. 그래서 0 으로 둔다 —
+        # 여기서 차이가 나면 개정이 아니라 진짜 문제(날짜 어긋남)라는 뜻이다.
+        revision_band=0.0,
         ff_title=None,
         ref_lag_months=0,
-        note="장단기 금리차. 음수는 침체 신호로 해석된다. 출처 FRED T10Y2Y. — 엑셀 주2",
+        note="장단기 금리차. 음수는 침체 신호로 해석된다. 출처 FRED T10Y2Y. — 엑셀 주2 "
+             "※ 엑셀의 주간 스냅샷은 날짜가 어긋나 있어(휴장일에도 값이 있음) "
+             "겹치는 구간은 FRED 일간 값이 맞다.",
     ),
     Series(
         id="cds_us_5y",
@@ -361,12 +383,22 @@ def format_value(series: Series, value: Optional[float]) -> str:
 
 
 def sanity_range(series: Series) -> tuple[float, float]:
-    """validate.py 가 쓰는 상식적 범위. 벗어나면 단위 변환 실수를 의심한다."""
+    """validate.py 가 쓰는 상식적 범위. 벗어나면 단위 변환 실수를 의심한다.
+
+    범위는 '평시 기준'이 아니라 '실제 관측된 극단값을 포함하되 단위 오류는 잡는' 선으로
+    잡아야 한다. 처음에 thousands 를 ±2,000 으로 뒀더니 2020년 COVID 실측치가
+    전부 경고로 잡혔다 — NFP 2020-04 는 진짜로 -20,469천명이고
+    신규 실업수당은 6,137천건까지 갔다. 진짜 값이 경고를 채우면 경고를 안 보게 된다.
+
+    ±25,000 으로 넓혀도 실제 단위 오류는 그대로 잡힌다:
+      - ICSA 를 변환 없이 넣으면 187,000 -> 범위 밖 ✓
+      - NFP 를 차분하지 않고 수준값으로 넣으면 ~160,000 -> 범위 밖 ✓
+    """
     return {
-        "ratio": (-0.5, 0.5),
+        "ratio": (-0.5, 0.5),          # 물가·금리 비율. 1970년대 인플레도 0.15 수준
         "index": (0.0, 1000.0),
-        "thousands": (-2000.0, 2000.0),
+        "thousands": (-25_000.0, 25_000.0),
         "millions": (0.0, 30.0),
         "pp": (-5.0, 5.0),
-        "bp": (0.0, 1000.0),
+        "bp": (0.0, 2000.0),           # 한국 CDS 2008년 고점이 약 700bp
     }[series.unit]
