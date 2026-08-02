@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Optional
 
@@ -23,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core import db as db_mod  # noqa: E402
 from core.series import ALL_SERIES, CATEGORY_ORDER, Series  # noqa: E402
+from core.transform import shift_months  # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "site" / "data"
 OUT_FILE = OUT_DIR / "dashboard.json"
@@ -88,10 +91,76 @@ def _series_meta(s: Series) -> dict:
     }
 
 
-def _surprise(s: Series, actual: Optional[float], forecast: Optional[float]) -> Optional[float]:
+def consensus_decimals(rows: list[dict]) -> Optional[int]:
+    """컨센서스가 실제로 갖는 해상도(소수 자릿수).
+
+    ForexFactory·엑셀의 예측치는 발표 헤드라인과 같은 자릿수로 온다.
+    시간당 임금은 0.1%p 단위(0.003), NFP 는 1천명 단위(57.0) 하는 식이다.
+    이 해상도보다 정밀한 실제값을 그대로 빼면 **없는 서프라이즈가 생긴다** —
+    2026-06 시간당 임금은 발표값도 예측도 둘 다 0.3% 였는데
+    FRED 수준값에서 계산한 0.3466% 를 빼서 '+0.05%p 예상 상회'가 됐다.
+
+    최빈값을 쓴다. 드물게 섞이는 다른 자릿수(예측 46건 중 3건) 때문에
+    전체 기준이 흔들리면 안 된다.
+    """
+    seen = [
+        -Decimal(repr(r["forecast"])).as_tuple().exponent
+        for r in rows
+        if r["forecast"] is not None
+    ]
+    if not seen:
+        return None
+    return max(Counter(seen).most_common(1)[0][0], 0)
+
+
+def _surprise(
+    s: Series,
+    actual: Optional[float],
+    forecast: Optional[float],
+    decimals: Optional[int] = None,
+) -> Optional[float]:
+    """예측대비. 실제값을 **컨센서스의 자릿수로 맞춘 뒤** 뺀다.
+
+    시장이 실제로 겪은 서프라이즈와 같아진다. 정밀 기준 값은 버리지 않고
+    호출부에서 `surpriseRaw` 로 함께 내보낸다.
+    """
     if actual is None or forecast is None:
         return None
+    if decimals is not None:
+        actual = round(actual, decimals)
     return actual - forecast
+
+
+def prev_actual_index(s: Series, all_rows: list) -> dict[str, Optional[float]]:
+    """기준시점 -> **우리 계열의 직전 기준시점 실제값**.
+
+    표의 `이전` 열은 컨센서스 피드에서 온 발표 당시 값이라 두 가지로 우리 실제값과 다르다.
+      - 반올림   0.1%p 단위로 온다 (0.2673% 가 0.2% 로)
+      - 개정     그 뒤 BLS 연간 계절조정 재추정 등으로 값이 바뀐다
+    그래서 `실제 - 이전` 을 그대로 빼면 발표된 변화도, 우리 계열의 변화도 아닌
+    **출처가 다른 두 숫자의 뺄셈**이 된다. 전기 대비는 여기서 만든 값으로 계산한다.
+
+    조회는 위치가 아니라 **달력 기준**이다. 발표가 건너뛰어진 구간에서
+    위치 기반으로 하면 조용히 두 기간 전 값을 집는다 (diff 에서 이미 겪었다).
+    주간·일간·이벤트 계열은 자연스러운 '직전 기간'이 없으므로
+    ref_date 정렬상 바로 앞 행을 쓴다.
+    """
+    actual_by_ref = {
+        r["ref_date"]: r["actual"] for r in all_rows if r["actual"] is not None
+    }
+    step = {"monthly": 1, "quarterly": 3}.get(s.frequency)
+
+    if step is not None:
+        return {
+            r["ref_date"]: actual_by_ref.get(shift_months(r["ref_date"], step))
+            for r in all_rows
+        }
+
+    ordered = sorted({r["ref_date"] for r in all_rows})
+    out: dict[str, Optional[float]] = {}
+    for i, ref in enumerate(ordered):
+        out[ref] = actual_by_ref.get(ordered[i - 1]) if i else None
+    return out
 
 
 def _latest_released(rows: list[dict]) -> Optional[dict]:
@@ -134,6 +203,13 @@ def build(conn) -> dict:
 
     series_out = []
     for s in ALL_SERIES:
+        # 전기 대비와 컨센서스 해상도는 **자르기 전 전량**으로 구한다.
+        # MAX_RELEASES 로 잘린 목록에서 직전 기간을 찾으면 맨 아래 행이 늘 비고,
+        # 자릿수 최빈값도 최근 60건에만 좌우된다.
+        all_rows = db_mod.releases_for(conn, s.id)
+        prev_actual = prev_actual_index(s, all_rows)
+        cdec = consensus_decimals(all_rows)
+
         rel_rows = db_mod.releases_for(conn, s.id, limit=MAX_RELEASES)
         # 실제·예측·이전이 모두 비어 있는 행은 표에 '— — —' 한 줄로만 보여
         # 정보가 없다. YoY 계열의 첫 12개월(기준값 없음)이나 발표가 건너뛰어진
@@ -153,7 +229,12 @@ def build(conn) -> dict:
                 "releaseDate": r["release_date"],
                 "actual": r["actual"],
                 "forecast": r["forecast"],
+                # 발표 당시 공표된 직전 값 (컨센서스 피드 기준, 반올림돼 있다)
                 "previous": r["previous"],
+                # 우리 계열의 직전 기준시점 실제값 (현재 개정치, 전체 정밀도)
+                "prevActual": prev_actual.get(r["ref_date"]),
+                "surprise": _surprise(s, r["actual"], r["forecast"], cdec),
+                "surpriseRaw": _surprise(s, r["actual"], r["forecast"]),
                 "source": r["source"],
                 "manual": any(
                     (s.id, r["ref_date"], f) in manual_keys
@@ -200,23 +281,19 @@ def build(conn) -> dict:
                 "releases": releases,
                 "observations": observations,
                 "observationsFromReleases": obs_from_releases,
-                "latest": (
-                    {
-                        **latest,
-                        "surprise": _surprise(s, latest["actual"], latest["forecast"]),
-                    }
-                    if latest
-                    else None
-                ),
+                # latest 는 releases 의 한 행이므로 surprise 를 이미 달고 있다.
+                # 여기서 다시 빼면 계산이 두 벌이 된다 — qoq 때 겪은 그 구조다.
+                "latest": latest,
                 "upcoming": upcoming,
                 # 예측을 계속 상회/하회하는 편향은 값 하나로는 안 보이고 이력으로만 보인다.
                 # (NFP 최근 6회: -57 / +44 / +83 / +149 / -214 / +94)
                 "surpriseHistory": [
-                    {"refDate": r["refDate"],
-                     "value": _surprise(s, r["actual"], r["forecast"])}
+                    {"refDate": r["refDate"], "value": r["surprise"]}
                     for r in releases[:MAX_SURPRISES]
-                    if r["actual"] is not None and r["forecast"] is not None
+                    if r["surprise"] is not None
                 ][::-1],
+                # 컨센서스가 갖는 해상도. 화면이 '정밀 기준' 툴팁을 쓸 때 필요하다.
+                "consensusDecimals": cdec,
                 "revisions": [
                     {
                         "refDate": r["ref_date"],
@@ -282,6 +359,8 @@ def build(conn) -> dict:
                 "actual": r["actual"],
                 "forecast": r["forecast"],
                 "previous": r["previous"],
+                "surprise": r["surprise"],
+                "surpriseRaw": r["surpriseRaw"],
             })
             taken += 1
     timeline.sort(key=lambda x: x["releaseDate"], reverse=True)

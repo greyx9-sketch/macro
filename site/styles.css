@@ -199,13 +199,23 @@ button.ghost[aria-pressed="true"] {
 }
 .timeline h2 { font-size: 13px; font-weight: 650; margin: 0 0 8px; }
 
-.tl-list { display: flex; flex-direction: column; }
+/* 열 폭은 '목록'이 정하고 '행'은 그대로 물려받는다.
+   행마다 grid-template-columns 를 따로 선언하면 트랙이 행마다 계산되므로,
+   마지막 auto 열(우호적/비우호적 배지)이 있는 행과 없는 행에서
+   1.4fr 인 지표명 열이 49px 씩 달라지고 그 뒤 다섯 열이 통째로 밀린다.
+   (실측: 배지 없는 행 644px / 있는 행 595px, 기준월 열 x 가 1444 vs 1395)
+   배지 폭이 '우호적' 3자와 '비우호적' 4자로 또 갈리니 폭이 셋이 된다. */
+.tl-list {
+  display: grid;
+  grid-template-columns: 88px minmax(140px, 1.4fr) 78px 92px 96px 96px auto;
+  column-gap: 10px;
+}
 
 .tl-row {
   display: grid;
-  grid-template-columns: 88px minmax(140px, 1.4fr) 78px 92px 96px 96px auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;  /* 폭은 부모가 정한다 */
   align-items: baseline;
-  gap: 10px;
   padding: 7px 6px;
   border: none;
   border-top: 1px solid var(--gridline);
@@ -220,6 +230,17 @@ button.ghost[aria-pressed="true"] {
 .tl-row:first-child { border-top: none; }
 .tl-row:hover { background: var(--dir-flat-wash); }
 .tl-row:focus-visible { outline: 2px solid var(--series-1); outline-offset: -2px; }
+
+/* subgrid 를 모르는 브라우저(Chrome 117 / Safari 16 / Firefox 71 이전)에서는
+   마지막 열을 고정 폭으로 못 박아 같은 결과를 낸다 — 배지가 있든 없든 폭이 같아진다. */
+@supports not (grid-template-columns: subgrid) {
+  .tl-list { display: flex; flex-direction: column; }
+  .tl-row {
+    grid-column: auto;
+    grid-template-columns: 88px minmax(140px, 1.4fr) 78px 92px 96px 96px 70px;
+    gap: 10px;
+  }
+}
 
 .tl-day    { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
 .tl-name   { font-size: 13px; font-weight: 550; }
@@ -452,11 +473,21 @@ td.flat { color: var(--dir-flat); }
   margin-left: 4px;
 }
 
+/* 발표 이후 개정돼 현재 계열값과 달라진 '이전' 값 표식.
+   방향색(빨강·파랑)을 쓰지 않는다 — 개정은 방향이 아니라 출처의 문제다. */
+.tag-revised {
+  font-size: 10px;
+  margin-left: 3px;
+  color: var(--text-muted);
+  cursor: help;
+}
+
 .table-scroll { overflow-x: auto; }
 
 /* 좁은 화면에서는 파생 열(예측대비·이전대비)을 감춘다.
-   실제·예측·이전에서 계산되는 값이라 정보 손실이 없고,
-   숨기지 않으면 핵심 열인 '이전' 까지 화면 밖으로 밀려 스크롤해야 보인다. */
+   예측대비는 실제·예측에서 바로 읽히고, 이전대비는 윗줄·아랫줄 '실제' 의 차이라
+   표 안에 근거가 남는다. 숨기지 않으면 핵심 열인 '이전' 까지 화면 밖으로 밀린다.
+   (카드의 '이전대비' 칩은 좁은 화면에서도 그대로 보인다) */
 @media (max-width: 559px) {
   table.rel th:nth-child(6), table.rel td:nth-child(6),
   table.rel th:nth-child(7), table.rel td:nth-child(7) { display: none; }
@@ -591,8 +622,12 @@ footer.foot {
   .card-value { font-size: 23px; }
 
   /* 타임라인 한 줄을 7칸 그리드로 두면 좁은 화면에서 전부 뭉갠다.
-     날짜·지표명 / 실제·서프라이즈 두 줄로 접는다. */
+     날짜·지표명 / 실제·서프라이즈 두 줄로 접는다.
+     이때는 열이 두 개뿐이라 행별 계산이어도 어긋날 여지가 없으므로
+     subgrid 를 풀고 목록을 다시 단순 세로 배치로 돌린다. */
+  .tl-list { display: block; }
   .tl-row {
+    grid-column: auto;
     grid-template-columns: 1fr auto;
     grid-template-areas:
       "name   actual"

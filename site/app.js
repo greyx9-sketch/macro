@@ -66,6 +66,25 @@ function dirOf(d) {
   return { cls: 'flat', mark: '—' };
 }
 
+// 전기 대비. '이전' 열(컨센서스 피드의 발표 당시 값)이 아니라
+// **우리 계열의 직전 기준시점 실제값**과 뺀다.
+//
+// '이전' 은 0.1%p 로 반올림돼 있고 그 뒤 개정되지 않은 값이다. 실제값은 전체
+// 정밀도의 현재 개정치다. 둘을 그대로 빼면 발표된 변화도, 우리 계열의 변화도
+// 아닌 숫자가 나온다 (시간당 임금 2026-06: 표시 +0.05%p, 실제 변화 +0.08%p).
+function prevDelta(r) {
+  const ok = v => v !== null && v !== undefined;
+  return (ok(r.actual) && ok(r.prevActual)) ? r.actual - r.prevActual : null;
+}
+
+// 반올림 전 값을 툴팁으로 남긴다 — 정밀 기준 차이를 버리지는 않는다.
+function surpriseTitle(s, r) {
+  if (r.surpriseRaw === null || r.surpriseRaw === undefined) return '';
+  if (r.surprise === r.surpriseRaw) return '';
+  return ` title="컨센서스 해상도 기준입니다. 정밀 기준으로는 ${
+    fmtDelta(s.unit, s.decimals, r.surpriseRaw)}."`;
+}
+
 // 발표일은 정밀도가 두 가지다. 'YYYY-MM' 은 엑셀 '발표월'에서 온 월 단위 정보로,
 // 날짜처럼 보여주면 그 달 1일에 발표된다는 거짓 정보가 된다.
 function fmtDate(iso) {
@@ -280,7 +299,7 @@ function card(s) {
     // 예측 대비 서프라이즈 — 컨센서스가 있는 지표에서만 의미가 있다.
     if (L.surprise !== null && L.surprise !== undefined) {
       const d = dirOf(L.surprise);
-      chips.push(`<span class="chip ${d.cls}"><span class="lbl">예측대비</span>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, L.surprise))}</span>`);
+      chips.push(`<span class="chip ${d.cls}"${surpriseTitle(s, L)}><span class="lbl">예측대비</span>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, L.surprise))}</span>`);
       const read = readSurprise(L.surprise, s.higherIsBetter);
       if (read && read.tone) {
         const good = read.tone === '경기에 우호적';
@@ -291,11 +310,13 @@ function card(s) {
         chips.push(`<span class="chip tone">${esc(read.fact)}</span>`);
       }
     }
-    // 직전 발표 대비 변화
-    if (L.previous !== null && L.previous !== undefined && L.actual !== null) {
-      const d0 = L.actual - L.previous;
+    // 직전 기준시점 대비 변화
+    const d0 = prevDelta(L);
+    if (d0 !== null) {
       const d = dirOf(d0);
-      chips.push(`<span class="chip ${d.cls}"><span class="lbl">이전대비</span>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, d0))}</span>`);
+      chips.push(`<span class="chip ${d.cls}"
+        title="직전 기준시점의 현재 확정치와 비교한 값입니다."
+        ><span class="lbl">이전대비</span>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, d0))}</span>`);
     }
   }
   if (!chips.length) {
@@ -330,7 +351,9 @@ function timelineSection(data, byId) {
   let lastDay = null;
   const rows = data.timeline.map(t => {
     const s = byId[t.seriesId];
-    const surprise = (t.actual !== null && t.forecast !== null) ? t.actual - t.forecast : null;
+    // 서프라이즈는 export 가 한 번만 계산한다. 여기서 다시 빼면 표·카드·막대와
+    // 값이 갈릴 수 있다 — 계산이 여러 벌로 흩어지는 것이 qoq 버그의 구조였다.
+    const surprise = t.surprise ?? null;
     const d = dirOf(surprise);
     const read = readSurprise(surprise, s.higherIsBetter);
     const day = t.releaseDate.slice(0, 10);
@@ -338,7 +361,7 @@ function timelineSection(data, byId) {
     lastDay = day;
 
     const surpriseCell = d
-      ? `<span class="tl-sur ${d.cls}">${d.mark} ${esc(fmtDelta(s.unit, s.decimals, surprise))}</span>`
+      ? `<span class="tl-sur ${d.cls}"${surpriseTitle(s, t)}>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, surprise))}</span>`
       : '<span class="tl-sur na">예측 없음</span>';
     const toneCell = read && read.tone
       ? `<span class="tl-tone ${read.tone === '경기에 우호적' ? 'tone-pos' : 'tone-neg'}"
@@ -408,28 +431,49 @@ function sliceByRange(obs, key) {
   return out.length >= 2 ? out : obs;
 }
 
+// '이전' 셀 — 발표 당시 공표된 값을 그대로 보여주되, 그 뒤 개정돼 현재 계열값과
+// 달라졌으면 표식을 단다. 표식이 없으면 바로 아랫줄 '실제' 와 어긋난 이유를
+// 알 길이 없어 표가 자기모순을 일으키는 것처럼 보인다.
+function previousCell(s, r) {
+  const ok = v => v !== null && v !== undefined;
+  if (!ok(r.previous)) return '<td class="na">—</td>';
+  const shown = fmt(s.unit, s.decimals, r.previous);
+  if (!ok(r.prevActual)) return `<td>${esc(shown)}</td>`;
+
+  // 컨센서스 자릿수로 맞춰 봐도 다르면 개정된 것이다.
+  const d = s.consensusDecimals;
+  const p = 10 ** (d === null || d === undefined ? 10 : d);
+  if (Math.round(r.prevActual * p) === Math.round(r.previous * p)) {
+    return `<td>${esc(shown)}</td>`;
+  }
+  return `<td>${esc(shown)}<span class="tag-revised"
+    title="발표 당시 ${esc(shown)} → 현재 ${esc(fmt(s.unit, s.decimals, r.prevActual))} (개정)"
+    >↻</span></td>`;
+}
+
 function releaseTable(s) {
   const rows = s.releases.map(r => {
-    const dPrev = (r.actual !== null && r.previous !== null) ? r.actual - r.previous : null;
+    const dPrev = prevDelta(r);
     const d = dirOf(dPrev);
-    const surprise = (r.actual !== null && r.forecast !== null) ? r.actual - r.forecast : null;
-    const ds = dirOf(surprise);
+    const ds = dirOf(r.surprise ?? null);
     const cell = (v) => v === null || v === undefined
       ? '<td class="na">—</td>'
       : `<td>${esc(fmt(s.unit, s.decimals, v))}</td>`;
     return `<tr>
       <td>${esc(fmtDate(r.releaseDate))}</td>
       <td>${esc(fmtMonth(r.refDate, s.frequency))}${r.manual ? '<span class="tag-manual">수동</span>' : ''}</td>
-      ${cell(r.actual)}${cell(r.forecast)}${cell(r.previous)}
-      <td class="${ds ? ds.cls : 'na'}">${ds ? ds.mark + ' ' + esc(fmtDelta(s.unit, s.decimals, surprise)) : '—'}</td>
+      ${cell(r.actual)}${cell(r.forecast)}${previousCell(s, r)}
+      <td class="${ds ? ds.cls : 'na'}"${surpriseTitle(s, r)}>${ds ? ds.mark + ' ' + esc(fmtDelta(s.unit, s.decimals, r.surprise)) : '—'}</td>
       <td class="${d ? d.cls : 'na'}">${d ? d.mark + ' ' + esc(fmtDelta(s.unit, s.decimals, dPrev)) : '—'}</td>
     </tr>`;
   }).join('');
 
   return `<div class="table-scroll"><table class="rel">
     <thead><tr>
-      <th>발표일</th><th>기준시점</th><th>실제</th><th>예측</th><th>이전</th>
-      <th>예측대비</th><th>이전대비</th>
+      <th>발표일</th><th>기준시점</th><th>실제</th><th>예측</th>
+      <th title="발표 당시 공표된 직전 값입니다. 컨센서스 소스에서 오며 반올림돼 있고, 이후 개정으로 현재 계열값과 다를 수 있습니다.">이전 ⓘ</th>
+      <th title="컨센서스와 같은 자릿수로 맞춰 계산합니다. 발표된 값과 예측이 같으면 '부합'이 됩니다.">예측대비 ⓘ</th>
+      <th title="직전 기준시점의 현재 확정치와 비교한 값입니다. 위의 '이전'(발표 당시 값)이 아닙니다.">이전대비 ⓘ</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="7" class="na">데이터 없음</td></tr>'}</tbody>
   </table></div>`;
