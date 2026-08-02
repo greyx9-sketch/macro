@@ -126,6 +126,21 @@ def load(conn: sqlite3.Connection) -> dict[str, int]:
     return counts
 
 
+def csv_newer_than(db_path: Path) -> bool:
+    """커밋된 CSV 가 작업용 DB 보다 새로운가.
+
+    `git pull` 로 새 데이터를 받으면 CSV 만 갱신되고 SQLite 는 그대로다.
+    이걸 확인하지 않으면 화면이 조용히 옛 데이터를 보여준다.
+    """
+    if not db_path.exists():
+        return True
+    db_mtime = db_path.stat().st_mtime
+    return any(
+        p.exists() and p.stat().st_mtime > db_mtime + 1  # 1초 여유
+        for p in (csv_path(t) for t, _c, _o in TABLES)
+    )
+
+
 def is_empty(conn: sqlite3.Connection) -> bool:
     for table in ("observations", "releases", "calendar_events"):
         if conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():

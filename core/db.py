@@ -44,7 +44,12 @@ def connect(path: Optional[Path] = None, *, autoload: bool = True) -> sqlite3.Co
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     sync_series(conn)
 
-    if autoload and store.is_empty(conn):
+    # CSV 가 영속 형식이고 SQLite 는 파생물이다. 따라서 CSV 가 더 새로우면 다시 읽는다.
+    #
+    # 전에는 '비어 있을 때만' 불러왔는데, 그러면 git pull 로 새 CSV 를 받아도
+    # 기존 DB 가 있으면 조용히 옛 데이터를 쓴다. 실제로 새 지표를 수집한 뒤
+    # pull 했는데 화면에 '첫 수집 대기' 로 남아 한참을 헤맸다.
+    if autoload and (store.is_empty(conn) or store.csv_newer_than(db_path)):
         store.load(conn)
 
     return conn
