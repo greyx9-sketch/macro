@@ -34,6 +34,10 @@ OUT_FILE = OUT_DIR / "dashboard.json"
 MAX_POINTS = 1200
 # 표에 실을 최대 발표 행 수.
 MAX_RELEASES = 60
+# 상세 패널의 서프라이즈 추이 막대 개수.
+MAX_SURPRISES = 12
+# 상단 '최근 발표' 타임라인 길이.
+MAX_TIMELINE = 20
 
 
 def collapse_steps(points: list[dict]) -> list[dict]:
@@ -205,6 +209,14 @@ def build(conn) -> dict:
                     else None
                 ),
                 "upcoming": upcoming,
+                # 예측을 계속 상회/하회하는 편향은 값 하나로는 안 보이고 이력으로만 보인다.
+                # (NFP 최근 6회: -57 / +44 / +83 / +149 / -214 / +94)
+                "surpriseHistory": [
+                    {"refDate": r["refDate"],
+                     "value": _surprise(s, r["actual"], r["forecast"])}
+                    for r in releases[:MAX_SURPRISES]
+                    if r["actual"] is not None and r["forecast"] is not None
+                ][::-1],
                 "revisions": [
                     {
                         "refDate": r["ref_date"],
@@ -236,10 +248,49 @@ def build(conn) -> dict:
         key=lambda x: x["releaseDate"],
     )
 
+    # ---- 최근 발표 타임라인 -------------------------------------------------
+    # 카테고리를 가로질러 '언제 무엇이 나왔나' 만 시간순으로 본다.
+    #
+    # 일간 계열(CDS·10Y-2Y)은 제외한다. 매일이 '발표'라 목록을 통째로 뒤덮어
+    # 정작 보려던 월간 지표 발표가 묻힌다.
+    # 월 단위 발표일(엑셀 백필분)도 제외한다 — 며칠에 나왔는지 모르는 항목을
+    # 날짜순 목록에 섞으면 순서가 거짓이 된다.
+    #
+    # 지표당 최근 1건만 넣는다. 주간 지표(신규 실업수당)는 매주 나오므로
+    # 제한이 없으면 20칸 중 7칸을 혼자 차지하고 월간 지표를 밀어낸다.
+    # 보려는 것은 '어느 지표가 마지막으로 언제 뭐라고 나왔나' 이지
+    # '한 지표의 지난 두 달' 이 아니다.
+    TIMELINE_FREQ = {"monthly", "quarterly", "weekly", "event"}
+    TIMELINE_PER_SERIES = 1
+    timeline = []
+    for s in series_out:
+        if s["frequency"] not in TIMELINE_FREQ:
+            continue
+        taken = 0
+        for r in s["releases"]:
+            if taken >= TIMELINE_PER_SERIES:
+                break
+            rd = r["releaseDate"]
+            if not rd or len(rd) <= 7 or r["actual"] is None:
+                continue
+            timeline.append({
+                "seriesId": s["id"],
+                "name": s["name"],
+                "category": s["category"],
+                "releaseDate": rd,
+                "refDate": r["refDate"],
+                "actual": r["actual"],
+                "forecast": r["forecast"],
+                "previous": r["previous"],
+            })
+            taken += 1
+    timeline.sort(key=lambda x: x["releaseDate"], reverse=True)
+
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "categories": CATEGORY_ORDER,
         "series": series_out,
+        "timeline": timeline[:MAX_TIMELINE],
         "upcoming": upcoming_all[:12],
         "sources": db_mod.latest_status(conn),
         "counts": {

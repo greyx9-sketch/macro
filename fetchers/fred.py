@@ -106,7 +106,10 @@ def assert_seasonal_adjustment(s: Series, *, key: Optional[str] = None) -> str:
         return ""
     meta = fetch_metadata(s.fred_id, key=key)
     got = (meta.get("seasonal_adjustment_short") or "").strip()
-    if got.upper() != want.upper():
+    # 접두 일치로 본다. FRED 는 계절조정을 'SA' 와 'SAAR'(연율 환산) 두 가지로 표기하는데
+    # GDP 처럼 SAAR 로 오는 계열도 '계절조정됨' 요구를 만족한다.
+    # 'NSA' 는 'SA' 로 시작하지 않으므로 여전히 걸러진다.
+    if not got.upper().startswith(want.upper()):
         raise FetchError(
             f"{s.name_ko}({s.fred_id}) 는 계절조정 '{want}' 를 요구하지만 "
             f"FRED 는 '{got}' ({meta.get('seasonal_adjustment')}) 로 제공합니다. "

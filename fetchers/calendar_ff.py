@@ -24,7 +24,7 @@ from typing import Optional
 from core import db as db_mod
 from core import series as series_mod
 from core.series import Series
-from core.transform import shift_months
+from core.transform import quarter_key, shift_months
 
 from .base import FetchResult, guarded, http_get, parse_raw_number, to_series_unit
 
@@ -48,6 +48,12 @@ def derive_ref_date(s: Series, release_dt: datetime) -> str:
 
     if s.frequency == "monthly":
         return shift_months(f"{d.year:04d}-{d.month:02d}-01", s.ref_lag_months)
+
+    if s.frequency == "quarterly":
+        # 분기 지표는 분기가 끝난 뒤에 발표된다(2026 Q2 -> 7월 말 속보치).
+        # 발표일이 속한 분기의 '직전 분기' 가 기준시점이다.
+        this_q = quarter_key(d.isoformat())
+        return quarter_key(shift_months(this_q, 3))
 
     if s.frequency == "weekly":
         # FRED ICSA 의 기준시점은 '토요일로 끝나는 주'.

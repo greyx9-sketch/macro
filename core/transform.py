@@ -19,6 +19,20 @@ def month_key(iso: str) -> str:
     return iso[:7] + "-01"
 
 
+def quarter_key(iso: str) -> str:
+    """'2026-05-20' -> '2026-04-01'. 분기 계열의 기준시점 정규화.
+
+    분기는 그 분기의 첫 달 1일로 표현한다. FRED 도 분기 계열을 그렇게 준다.
+    """
+    y, m = int(iso[:4]), int(iso[5:7])
+    return f"{y:04d}-{(m - 1) // 3 * 3 + 1:02d}-01"
+
+
+def quarter_label(iso: str) -> str:
+    """'2026-04-01' -> '2026 Q2'. 화면·리포트 표기용."""
+    return f"{iso[:4]} Q{(int(iso[5:7]) - 1) // 3 + 1}"
+
+
 def shift_months(iso_month: str, months: int) -> str:
     y, m = int(iso_month[:4]), int(iso_month[5:7])
     total = y * 12 + (m - 1) - months
@@ -45,8 +59,11 @@ def apply_transform(points: list[Point], transform: Optional[str]) -> list[Point
 
     ordered = sorted(points, key=lambda p: p[0])
 
-    if transform in ("yoy", "mom"):
-        lag = 12 if transform == "yoy" else 1
+    if transform in ("yoy", "mom", "qoq"):
+        # 분기(qoq)도 같은 달력 기준 조회를 쓴다 — 3개월 전을 찾는다.
+        # 위치 기반(직전 원소)으로 하면 계열 중간이 비었을 때 6개월 차이를
+        # 3개월인 것처럼 계산하고도 아무 신호를 주지 않는다.
+        lag = {"yoy": 12, "mom": 1, "qoq": 3}[transform]
         index = {month_key(d): v for d, v in ordered}
         out: list[Point] = []
         for d, v in ordered:
@@ -76,11 +93,13 @@ def apply_transform(points: list[Point], transform: Optional[str]) -> list[Point
 def normalize_ref_date(iso: str, frequency: str) -> str:
     """기준시점을 저장 규약에 맞춘다.
 
-    월간 지표는 해당 월 1일로 정규화한다. FRED 도 월간 계열을 그렇게 주지만
-    다른 소스(캘린더 피드)는 발표일을 주므로 여기서 통일한다.
+    월간 지표는 해당 월 1일로, 분기 지표는 그 분기 첫 달 1일로 정규화한다.
+    FRED 도 그렇게 주지만 다른 소스(캘린더 피드)는 발표일을 주므로 여기서 통일한다.
     """
     if frequency == "monthly":
         return month_key(iso)
+    if frequency == "quarterly":
+        return quarter_key(iso)
     return iso[:10]
 
 

@@ -29,6 +29,7 @@
     <div class="topbar">
       <h1>매크로 지표 대시보드</h1>
       <div class="topbar-actions">
+        <button class="ghost" id="compare-open" type="button" title="지표를 골라 한 화면에서 비교">비교</button>
         <button class="ghost" id="theme-toggle" type="button" title="라이트/다크 전환">테마</button>
       </div>
     </div>
@@ -61,6 +62,17 @@
       <button class="ghost" id="d-close" type="button">닫기</button>
     </div>
     <div class="detail-body" id="d-body"></div>
+  </dialog>
+
+  <dialog class="detail" id="compare">
+    <div class="detail-head">
+      <div>
+        <h2 class="detail-title">지표 비교</h2>
+        <p class="detail-note" id="c-note"></p>
+      </div>
+      <button class="ghost" id="c-close" type="button">닫기</button>
+    </div>
+    <div class="detail-body" id="c-body"></div>
   </dialog>
 
   <script src="app.js"></script>

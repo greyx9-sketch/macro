@@ -29,8 +29,8 @@ from typing import Literal, Optional
 # bp       : 베이시스포인트                         (CDS)
 Unit = Literal["ratio", "index", "thousands", "millions", "pp", "bp"]
 
-Category = Literal["물가", "고용", "서베이", "금융"]
-Frequency = Literal["monthly", "weekly", "daily", "event"]
+Category = Literal["물가", "고용", "경기", "서베이", "금융"]
+Frequency = Literal["monthly", "quarterly", "weekly", "daily", "event"]
 
 
 @dataclass(frozen=True)
@@ -173,6 +173,21 @@ _PRICES = [
         higher_is_better=False,
         note="식품·에너지 제외. 연준이 실질적으로 보는 물가 지표.",
     ),
+    Series(
+        id="core_pce_mom",
+        name_ko="근원 PCE (% MoM)",
+        category="물가",
+        unit="ratio",
+        frequency="monthly",
+        decimals=4,
+        fred_id="PCEPILFE",
+        transform="mom",
+        require_seasonal_adjustment="SA",
+        # 연준이 실제로 반응하는 형태. YoY 와 달리 캘린더에 컨센서스가 들어온다.
+        ff_title="Core PCE Price Index m/m",
+        higher_is_better=False,
+        note="연준이 가장 주시하는 물가 지표의 월간 변화. 예측이 존재하는 유일한 PCE 형태다.",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -252,6 +267,57 @@ _EMPLOYMENT = [
         higher_is_better=True,
         note="노동 수요. 2개월 지연 발표.",
     ),
+    Series(
+        id="eci_qoq",
+        name_ko="고용비용지수 (% QoQ)",
+        category="고용",
+        unit="ratio",
+        frequency="quarterly",
+        decimals=4,
+        fred_id="ECIALLCIV",   # 지수(2005-12=100)라 전분기비로 환산한다
+        transform="qoq",
+        require_seasonal_adjustment="SA",
+        ff_title="Employment Cost Index q/q",
+        higher_is_better=False,  # 임금발 물가압력 관점. 근로자 관점과는 반대다
+        note="전체 근로자 총보수 비용. 임금발 물가압력을 보는 지표라 연준이 분기마다 확인한다.",
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# 경기 — 실물 활동. 기존 4개 시트에는 없던 축이라 새로 만든다.
+# ---------------------------------------------------------------------------
+_ACTIVITY = [
+    Series(
+        id="gdp_qoq",
+        name_ko="실질 GDP (% QoQ 연율)",
+        category="경기",
+        unit="ratio",
+        frequency="quarterly",
+        decimals=3,
+        # 이미 '전기대비 연율 %' 로 제공되는 계열이라 별도 파생이 필요 없다.
+        fred_id="A191RL1Q225SBEA",
+        transform="div100",
+        # 'SA' 를 요구하면 'SAAR'(연율 환산 계절조정)도 통과한다 — 접두 일치로 본다.
+        # 'NSA' 는 'SA' 로 시작하지 않으므로 여전히 걸러진다.
+        require_seasonal_adjustment="SA",
+        ff_title="Advance GDP q/q",
+        higher_is_better=True,
+        note="전기대비 연율 환산 실질 성장률. 속보치·잠정치·확정치로 세 번 발표되며 개정 폭이 크다.",
+    ),
+    Series(
+        id="retail_sales_mom",
+        name_ko="소매판매 (% MoM)",
+        category="경기",
+        unit="ratio",
+        frequency="monthly",
+        decimals=4,
+        fred_id="RSAFS",
+        transform="mom",
+        require_seasonal_adjustment="SA",
+        ff_title="Retail Sales m/m",
+        higher_is_better=True,
+        note="소매·요식업 매출. 미국 경제의 소비 부문을 가장 빠르게 보여준다.",
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -287,6 +353,25 @@ _SURVEY = [
         ff_aliases=("ISM Non-Manufacturing PMI",),
         higher_is_better=True,
         note="50 기준. 매월 셋째 영업일 발표.",
+    ),
+    Series(
+        id="uom_sentiment",
+        name_ko="미시간대 소비자심리",
+        category="서베이",
+        unit="index",
+        frequency="monthly",
+        decimals=1,
+        fred_id="UMCSENT",
+        # 계절조정 여부를 단정할 근거가 없어 검증을 걸지 않는다.
+        # 잘못 걸면 멀쩡한 계열이 실패한다 — 모르면 주장하지 않는 편이 낫다.
+        require_seasonal_adjustment=None,
+        # 같은 달을 두 번 발표한다: 중순 예비치, 말일 확정치.
+        # 둘 다 같은 기준월이므로 확정치가 예비치를 덮어쓴다.
+        ff_title="Revised UoM Consumer Sentiment",
+        ff_aliases=("Prelim UoM Consumer Sentiment", "UoM Consumer Sentiment"),
+        ref_lag_months=0,   # 당월 조사를 당월에 발표한다
+        higher_is_better=True,
+        note="가계 심리. 예비치(중순)와 확정치(말일)로 같은 달을 두 번 발표한다.",
     ),
 ]
 
@@ -368,11 +453,11 @@ _FINANCE = [
     ),
 ]
 
-ALL_SERIES: list[Series] = _PRICES + _EMPLOYMENT + _SURVEY + _FINANCE
+ALL_SERIES: list[Series] = _PRICES + _EMPLOYMENT + _ACTIVITY + _SURVEY + _FINANCE
 
 BY_ID: dict[str, Series] = {s.id: s for s in ALL_SERIES}
 
-CATEGORY_ORDER: list[Category] = ["물가", "고용", "서베이", "금융"]
+CATEGORY_ORDER: list[Category] = ["물가", "고용", "경기", "서베이", "금융"]
 
 
 def by_category(cat: Category) -> list[Series]:
