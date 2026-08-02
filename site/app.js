@@ -98,12 +98,24 @@ function sparkline(obs, maxPoints) {
   </svg>`;
 }
 
+// 차트 좌표계. viewBox 를 화면 폭에 맞춰 고른다.
+//
+// 고정 viewBox(820x240) 에 CSS height 를 240px 로 박아두면, 좁은 화면에서
+// preserveAspectRatio 가 종횡비를 지키며 축소하는 바람에 위아래로 거대한 빈 공간이 생긴다.
+// 실제로 390px 모바일에서 차트 영역의 절반 이상이 여백이었다.
+function chartBox() {
+  const narrow = Math.min(window.innerWidth, document.documentElement.clientWidth) < 560;
+  return narrow
+    ? { W: 360, H: 240, L: 44, R: 8, T: 10, B: 24 }
+    : { W: 820, H: 240, L: 56, R: 12, T: 12, B: 26 };
+}
+
 /** 상세 패널용 선 차트. 축 + 크로스헤어 툴팁 포함. */
 function lineChart(series, obs) {
   if (obs.length < 2) {
     return '<p style="color:var(--text-muted);font-size:13px">추이를 그리기에 관측치가 부족합니다.</p>';
   }
-  const W = 820, H = 240, L = 56, R = 12, T = 12, B = 26;
+  const { W, H, L, R, T, B } = chartBox();
   const vals = obs.map(p => p.v);
   let lo = Math.min(...vals), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.08 || Math.abs(hi || 1) * 0.08;
@@ -165,7 +177,8 @@ function wireChartHover(series, obs) {
   const tip = document.getElementById('d-tip');
   const holder = svg.parentElement;
 
-  const W = 820, H = 240, L = 56, R = 12, T = 12, B = 26;
+  // lineChart() 와 같은 좌표계를 써야 크로스헤어가 선 위에 정확히 붙는다.
+  const { W, H, L, R, T, B } = chartBox();
   const vals = obs.map(p => p.v);
   let lo = Math.min(...vals), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.08 || Math.abs(hi || 1) * 0.08;

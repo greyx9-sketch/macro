@@ -133,6 +133,7 @@ button.ghost {
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;   /* '닫기' 가 좁은 화면에서 두 줄로 깨지는 것 방지 */
 }
 button.ghost:hover { color: var(--text-primary); border-color: var(--baseline); }
 button.ghost[aria-pressed="true"] {
@@ -288,7 +289,18 @@ dialog.detail::backdrop { background: rgba(0, 0, 0, 0.42); }
 .range-row { display: flex; gap: 6px; margin-bottom: 10px; }
 
 .chart-holder { position: relative; }
-svg.chart { display: block; width: 100%; height: 240px; overflow: visible; }
+/* height 를 고정하지 않고 viewBox 종횡비를 따르게 한다.
+   고정하면 좁은 화면에서 축소된 그림 위아래로 빈 공간이 남는다. */
+svg.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 820 / 240;
+  overflow: visible;
+}
+@media (max-width: 559px) {
+  svg.chart { aspect-ratio: 360 / 240; }   /* app.js chartBox() 와 일치시킬 것 */
+}
 
 .tooltip {
   position: absolute;
@@ -350,6 +362,15 @@ td.flat { color: var(--dir-flat); }
 }
 
 .table-scroll { overflow-x: auto; }
+
+/* 좁은 화면에서는 파생 열(예측대비·이전대비)을 감춘다.
+   실제·예측·이전에서 계산되는 값이라 정보 손실이 없고,
+   숨기지 않으면 핵심 열인 '이전' 까지 화면 밖으로 밀려 스크롤해야 보인다. */
+@media (max-width: 559px) {
+  table.rel th:nth-child(6), table.rel td:nth-child(6),
+  table.rel th:nth-child(7), table.rel td:nth-child(7) { display: none; }
+  table.rel th, table.rel td { padding: 5px 5px; font-size: 12px; }
+}
 
 h3.sub {
   font-size: 12px;

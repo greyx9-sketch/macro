@@ -66,7 +66,12 @@ def derive_ref_date(s: Series, release_dt: datetime) -> str:
 # 수집
 # ---------------------------------------------------------------------------
 def fetch_feed() -> list[dict]:
-    raw = http_get(FEED_URL)
+    # ★ 이 소스만 재시도를 길게 잡는다 ★
+    #   ForexFactory 는 429(Too Many Requests)를 돌려주는데, 기본 재시도(2초·4초)로는
+    #   레이트 리밋이 풀리기 전에 포기한다. 다른 소스는 실패해도 다음 실행에서
+    #   똑같이 다시 받으면 그만이지만, **이 피드는 이번 주치만 제공하므로
+    #   놓친 주의 컨센서스는 영원히 복구할 수 없다.** 몇 분 더 기다릴 가치가 있다.
+    raw = http_get(FEED_URL, retries=5, backoff=20.0)  # 20/40/60/80초 대기
     data = json.loads(raw)
     if not isinstance(data, list):
         raise ValueError(f"캘린더 피드 형식이 예상과 다름: {type(data).__name__}")

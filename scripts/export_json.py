@@ -131,6 +131,18 @@ def build(conn) -> dict:
     series_out = []
     for s in ALL_SERIES:
         rel_rows = db_mod.releases_for(conn, s.id, limit=MAX_RELEASES)
+        # 실제·예측·이전이 모두 비어 있는 행은 표에 '— — —' 한 줄로만 보여
+        # 정보가 없다. YoY 계열의 첫 12개월(기준값 없음)이나 발표가 건너뛰어진
+        # 시점에서 생긴다. 단 아직 발표 전인 행은 '다가오는 발표' 로 쓰이므로 남긴다.
+        today = datetime.now(timezone.utc).date().isoformat()
+
+        def informative(r) -> bool:
+            if r["actual"] is not None or r["forecast"] is not None or r["previous"] is not None:
+                return True
+            rd = r["release_date"] or ""
+            return bool(rd) and rd[:10] >= today[: len(rd[:10])]
+
+        rel_rows = [r for r in rel_rows if informative(r)]
         releases = [
             {
                 "refDate": r["ref_date"],
