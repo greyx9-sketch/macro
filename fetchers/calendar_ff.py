@@ -71,7 +71,10 @@ def fetch_feed() -> list[dict]:
     #   레이트 리밋이 풀리기 전에 포기한다. 다른 소스는 실패해도 다음 실행에서
     #   똑같이 다시 받으면 그만이지만, **이 피드는 이번 주치만 제공하므로
     #   놓친 주의 컨센서스는 영원히 복구할 수 없다.** 몇 분 더 기다릴 가치가 있다.
-    raw = http_get(FEED_URL, retries=5, backoff=20.0)  # 20/40/60/80초 대기
+    #   실측한 쿨다운은 약 5분이었다. 20/40/60/80초(합 3.3분)로는 모자라
+    #   30/60/90/120/150초(합 7.5분)로 잡는다. 하루 두 번 도는 작업에서
+    #   최악 7.5분을 더 기다리는 비용은, 그 주 컨센서스를 영구히 잃는 것에 비하면 싸다.
+    raw = http_get(FEED_URL, retries=6, backoff=30.0)
     data = json.loads(raw)
     if not isinstance(data, list):
         raise ValueError(f"캘린더 피드 형식이 예상과 다름: {type(data).__name__}")

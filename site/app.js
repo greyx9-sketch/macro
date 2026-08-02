@@ -27,18 +27,32 @@ function fmt(unit, decimals, v) {
   }
 }
 
+// 0 이 아닌 값이 반올림 때문에 '0.0' 으로 보이지 않도록 자릿수를 늘린다.
+//
+// 화살표는 '하락' 인데 숫자는 '0.0' 이면 서로 모순돼 보인다.
+// 실제로 PCE 예측대비가 '▼ −0.0%p' 로 표시되고 있었다 (비율 계열은 소수 1자리라
+// 0.05%p 미만이 전부 0.0 이 된다). 값이 살아날 때까지 자릿수를 최대 2자리 더 준다.
+function precise(magnitude, decimals, scale = 1) {
+  const v = magnitude * scale;
+  for (let d = decimals; d <= decimals + 2; d++) {
+    const s = v.toFixed(d);
+    if (parseFloat(s) !== 0 || v === 0) return s;
+  }
+  return v.toExponential(1);
+}
+
 // 차이값 표기. 비율 계열은 %p 로 읽는 것이 맞다 (3.5% - 3.8% = -0.3%p).
 function fmtDelta(unit, decimals, d) {
   if (d === null || d === undefined || Number.isNaN(d)) return '—';
   const sign = d > 0 ? '+' : (d < 0 ? '−' : '±');
   const a = Math.abs(d);
   switch (unit) {
-    case 'ratio':     return sign + (a * 100).toFixed(Math.max(1, decimals - 2)) + '%p';
+    case 'ratio':     return sign + precise(a, Math.max(1, decimals - 2), 100) + '%p';
     case 'thousands': return sign + a.toLocaleString('ko-KR', { maximumFractionDigits: decimals }) + 'K';
-    case 'millions':  return sign + a.toFixed(decimals) + 'M';
-    case 'bp':        return sign + a.toFixed(decimals) + 'bp';
-    case 'pp':        return sign + a.toFixed(decimals) + '%p';
-    default:          return sign + a.toFixed(decimals);
+    case 'millions':  return sign + precise(a, decimals) + 'M';
+    case 'bp':        return sign + precise(a, decimals) + 'bp';
+    case 'pp':        return sign + precise(a, decimals) + '%p';
+    default:          return sign + precise(a, decimals);
   }
 }
 
