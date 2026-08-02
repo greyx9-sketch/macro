@@ -188,6 +188,11 @@ button.ghost[aria-pressed="true"] {
 .upcoming-name { font-size: 13px; font-weight: 550; margin-top: 1px; }
 .upcoming-fc   { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
+/* 이력에서 추정한 항목. 확정 일정과 같은 모양이면 안 된다 —
+   점선은 '이 날짜는 약속이 아니다' 를 색을 쓰지 않고 말한다. */
+.upcoming-item.est { border-style: dashed; cursor: help; }
+.upcoming-item.est .upcoming-date { font-style: italic; }
+
 /* ------------------------------------------------------------- timeline */
 .timeline {
   background: var(--surface);
@@ -366,8 +371,24 @@ section.cat > h2 {
   color: var(--text-muted);
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   margin-top: 2px;
 }
+
+/* '지금 이 값이 높은 건가' 에 대한 답. 값 바로 아래에 둔다 —
+   차트를 보기 전에 읽혀야 의미가 있다. */
+.ctx {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: -2px 0 6px;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+/* 추정 발표일이 지났는데 값이 없다 = 수집이 밀렸거나 발표가 늦었다.
+   방향색(빨강·파랑)을 쓰지 않는다 — 이건 값의 방향이 아니라 상태다. */
+.card.overdue { border-color: var(--dir-flat); }
+.overdue-txt { font-weight: 600; color: var(--text-primary); }
 
 /* --------------------------------------------------------------- details */
 dialog.detail {
@@ -482,6 +503,75 @@ td.flat { color: var(--dir-flat); }
   cursor: help;
 }
 
+/* 그 기준시점의 발표가 아예 없었던 구간.
+   표에서 빼 버리면 사용자는 데이터가 깨진 줄 안다. */
+.gap-row td {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-style: italic;
+  text-align: center;
+  background: var(--dir-flat-wash);
+}
+
+.detail-foot {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--gridline);
+}
+.detail-foot a { color: var(--series-1); }
+
+/* 상세 패널의 맥락 줄. 차트 바로 아래에 두어 그림과 숫자가 같이 읽히게 한다. */
+.ctx-line {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+.next-line {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.next-line strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.next-line.warn {
+  border-left: 2px solid var(--dir-flat);
+  padding-left: 8px;
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------ 툴팁 */
+/* `title` 은 터치에서 절대 열리지 않는다. 마우스·키보드·터치를 모두 여는 팝오버.
+   dialog 위에도 떠야 하므로 z-index 를 최상단에 둔다. */
+.tip-mark {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: help;
+  user-select: none;
+}
+.tip-mark:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; border-radius: 3px; }
+
+.tip {
+  position: fixed;
+  z-index: 2147483647;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.tip.on { opacity: 1; visibility: visible; }
+
 .table-scroll { overflow-x: auto; }
 
 /* 좁은 화면에서는 파생 열(예측대비·이전대비)을 감춘다.
@@ -574,7 +664,19 @@ h3.sub {
 .src-row:first-of-type { border-top: none; }
 .src-name { font-weight: 550; min-width: 110px; }
 .src-when { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 150px; }
-.src-msg  { color: var(--text-secondary); flex: 1; min-width: 200px; }
+.src-msg  { color: var(--text-secondary); flex: 1; min-width: 200px; word-break: break-word; }
+
+/* 소비자에게 필요한 것은 '지금 믿어도 되나' 한 줄이다.
+   수집기 로그 원문은 접어 두되 <details> 로 둔다 — 터치에서도 열려야 한다. */
+.src-headline { font-size: 13px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.src-detail > summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 0;
+  list-style: revert;
+}
+.src-detail > summary:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
 
 .badge {
   display: inline-flex;

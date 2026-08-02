@@ -99,6 +99,36 @@ class Series:
 
 
 # ---------------------------------------------------------------------------
+# 공식 발표 일정 페이지
+# ---------------------------------------------------------------------------
+# 화면은 다음 발표 시점을 **이력에서 뽑은 구간**으로 추정해 보여준다(export_json.py).
+# 추정은 추정이므로, 확정 일정을 직접 확인할 길을 함께 준다.
+#
+# 계열의 속성이 아니라 **발표 기관의 속성**이라 Series 필드로 두지 않았다.
+# 기관 하나가 여러 지표를 같은 페이지에서 공지하므로 여기 모아 두는 편이 정확하다.
+_BLS = "https://www.bls.gov/schedule/news_release/"
+_BEA = "https://www.bea.gov/news/schedule"
+_CENSUS = "https://www.census.gov/economic-indicators/calendar-listing.html"
+_FED = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+_BOK = "https://www.bok.or.kr/portal/singl/crncyPolicyDrcMtg/listYear.do?mtgSe=A"
+_ISM = "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/"
+_UMICH = "https://data.sca.isr.umich.edu/"
+
+SCHEDULE_URLS: dict[str, str] = {
+    "cpi_index": _BLS, "cpi_yoy": _BLS, "ppi_index": _BLS,
+    "nfp": _BLS, "unemployment_rate": _BLS, "avg_hourly_earnings_mom": _BLS,
+    "jolts": _BLS, "eci_qoq": _BLS,
+    "pce_yoy": _BEA, "core_pce_yoy": _BEA, "core_pce_mom": _BEA, "gdp_qoq": _BEA,
+    "retail_sales_mom": _CENSUS,
+    "initial_claims": "https://www.dol.gov/ui/data.pdf",
+    "ism_manufacturing": _ISM, "ism_services": _ISM,
+    "uom_sentiment": _UMICH,
+    "fed_funds_upper": _FED,
+    "bok_base_rate": _BOK,
+}
+
+
+# ---------------------------------------------------------------------------
 # 물가
 # ---------------------------------------------------------------------------
 _PRICES = [

@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Optional
@@ -24,8 +24,8 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core import db as db_mod  # noqa: E402
-from core.series import ALL_SERIES, CATEGORY_ORDER, Series  # noqa: E402
-from core.transform import shift_months  # noqa: E402
+from core.series import ALL_SERIES, CATEGORY_ORDER, SCHEDULE_URLS, Series  # noqa: E402
+from core.transform import parse_iso_date, shift_months  # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "site" / "data"
 OUT_FILE = OUT_DIR / "dashboard.json"
@@ -88,6 +88,9 @@ def _series_meta(s: Series) -> dict:
         "note": s.note,
         "higherIsBetter": s.higher_is_better,
         "hasForecastSource": s.ff_title is not None,
+        # 발표 시점은 추정이므로 확정 일정을 직접 볼 길을 함께 준다.
+        # 일간 시장 계열(10Y-2Y·CDS)에는 '발표 일정' 이라는 것이 없어 비어 있다.
+        "scheduleUrl": SCHEDULE_URLS.get(s.id),
     }
 
 
@@ -161,6 +164,120 @@ def prev_actual_index(s: Series, all_rows: list) -> dict[str, Optional[float]]:
     for i, ref in enumerate(ordered):
         out[ref] = actual_by_ref.get(ordered[i - 1]) if i else None
     return out
+
+
+def _quantile(sorted_vals: list[float], p: float) -> float:
+    """0~1 분위. 표본이 작아 보간은 하지 않는다 — 가장 가까운 관측치를 그대로 쓴다."""
+    i = round((len(sorted_vals) - 1) * p)
+    return sorted_vals[min(len(sorted_vals) - 1, max(0, i))]
+
+
+def next_ref_date(s: Series, ref: str) -> Optional[str]:
+    """다음 기준시점. 달력 기준이다."""
+    if s.frequency == "monthly":
+        return shift_months(ref, -1)
+    if s.frequency == "quarterly":
+        return shift_months(ref, -3)
+    if s.frequency == "weekly":
+        return (parse_iso_date(ref) + timedelta(days=7)).isoformat()
+    return None  # 일간·이벤트는 '다음 기준시점' 이라는 개념이 없다
+
+
+def estimate_next_release(s: Series, all_rows: list) -> Optional[dict]:
+    """다음 발표 시점을 **날짜가 아니라 구간으로** 추정한다.
+
+    왜 날짜를 콕 집지 않는가
+    -----------------------
+    '몇 번째 무슨 요일' 규칙을 이력으로 시험해 보니 CPI 46% · PCE 33% ·
+    소매판매 29% 밖에 안 맞는다. 우리가 가진 발표일은 공식 발표일과 FRED 갱신일이
+    섞여 있어서다. 단일 날짜를 내놓으면 **자신 있게 틀린 정보**가 된다.
+
+    그래서 `발표일 − 기준시점` 경과일의 10~90 분위를 구간으로 쓴다.
+    실측 검증: 청구 8/06 단일(24/24), 실업률 8/01~8/11 → 확정 8/07,
+    NFP 8/01~8/15 → 확정 8/07, JOLTS 7/29~8/09 → 확정 8/04.
+
+    말하지 않는 편이 나은 경우
+    -------------------------
+      표본 8회 미만    ISM 2종은 완전한 발표일이 0건이다
+      구간 폭 21일 초과 PPI 34일·소매판매 30일·PCE 27일. '8월 중' 보다 나을 게 없다
+    """
+    lags = []
+    for r in all_rows:
+        rd, ref = r["release_date"], r["ref_date"]
+        if not rd or len(rd) < 10 or r["actual"] is None:
+            continue
+        lags.append((parse_iso_date(rd[:10]) - parse_iso_date(ref)).days)
+        if len(lags) >= 24:
+            break
+    if len(lags) < 8:
+        return None
+
+    ordered = sorted(lags)
+    lo, hi, med = (_quantile(ordered, p) for p in (0.10, 0.90, 0.50))
+    if hi - lo > 21:
+        return None
+
+    latest_ref = next(
+        (r["ref_date"] for r in all_rows if r["actual"] is not None), None
+    )
+    nxt = next_ref_date(s, latest_ref) if latest_ref else None
+    if not nxt:
+        return None
+
+    base = parse_iso_date(nxt)
+    return {
+        "refDate": nxt,
+        "from": (base + timedelta(days=lo)).isoformat(),
+        "to": (base + timedelta(days=hi)).isoformat(),
+        "median": (base + timedelta(days=med)).isoformat(),
+        "sample": len(lags),
+        "inBand": sum(1 for v in lags if lo <= v <= hi),
+    }
+
+
+# 백분위는 '지금이 높은가 낮은가' 를 묻는 지표에만 의미가 있다.
+#
+# 물가 **수준 지수**는 추세적으로 우상향이라 언제나 꼭대기에 있다. 실측으로
+# 최근 24개월 백분위가 CPI 지수 95~98, PPI 지수 93~98 로 **24/24 개월이 90 이상**이다.
+# 정보가 하나도 없는데 정보인 척하는 표시가 된다.
+#
+# 처음에는 `unit == 'index'` 로 걸렀는데 **그건 너무 거칠었다.**
+# ISM PMI(12~95, 중앙 90)와 미시간대 소비자심리(0~65, 중앙 13)도 같은 단위지만
+# 오르내리는 서베이 지수라 백분위가 오히려 가장 값진 정보다.
+# 기준은 단위가 아니라 '추세적으로 한 방향인가' 이므로 지표를 직접 지목한다.
+CONTEXT_EXCLUDED_IDS = {"cpi_index", "ppi_index"}
+
+
+def value_context(s: Series, points: list[dict]) -> Optional[dict]:
+    """현재 값이 최근 이력의 어디쯤인가.
+
+    차트는 형태를 보여주지만 '지금 3.5% 가 높은 건가' 에는 답하지 못한다.
+    최근 1년 범위와 5년 백분위 두 숫자면 답이 된다.
+    """
+    if s.id in CONTEXT_EXCLUDED_IDS or not points:
+        return None
+    # 5년이면 분기 계열은 20개뿐이다. 월간 기준(24)을 그대로 쓰면
+    # GDP·고용비용지수가 영원히 표시되지 않는다.
+    min_sample = 12 if s.frequency == "quarterly" else 24
+
+    last = points[-1]
+    cut1y = (parse_iso_date(last["d"]) - timedelta(days=365)).isoformat()
+    cut5y = (parse_iso_date(last["d"]) - timedelta(days=365 * 5)).isoformat()
+
+    win1y = [p["v"] for p in points if p["d"] >= cut1y]
+    win5y = [p["v"] for p in points if p["d"] >= cut5y]
+    if len(win5y) < min_sample:
+        return None
+
+    below = sum(1 for v in win5y if v < last["v"])
+    return {
+        "lo1y": min(win1y) if win1y else None,
+        "hi1y": max(win1y) if win1y else None,
+        "n1y": len(win1y),
+        # '상위 몇 %' 로 읽는다 — 100 이면 5년 최고치다.
+        "pct5y": round(below / len(win5y) * 100),
+        "n5y": len(win5y),
+    }
 
 
 def _latest_released(rows: list[dict]) -> Optional[dict]:
@@ -285,6 +402,11 @@ def build(conn) -> dict:
                 # 여기서 다시 빼면 계산이 두 벌이 된다 — qoq 때 겪은 그 구조다.
                 "latest": latest,
                 "upcoming": upcoming,
+                # 캘린더가 정확한 날짜를 준 지표는 소수(22종 중 7종)다.
+                # 나머지 빈 자리를 이력에서 뽑은 '구간' 으로 메운다. 확정값이 있으면
+                # 화면이 그쪽을 쓴다 — 추정이 확정을 덮지 않는다.
+                "estimatedNext": estimate_next_release(s, all_rows),
+                "context": value_context(s, points),
                 # 예측을 계속 상회/하회하는 편향은 값 하나로는 안 보이고 이력으로만 보인다.
                 # (NFP 최근 6회: -57 / +44 / +83 / +149 / -214 / +94)
                 "surpriseHistory": [
@@ -308,22 +430,39 @@ def build(conn) -> dict:
         )
         series_out.append(meta)
 
-    # 다가오는 발표 일정 (전 지표 통합)
-    upcoming_all = sorted(
-        (
-            {
-                "seriesId": s["id"],
-                "name": s["name"],
-                "category": s["category"],
+    # ---- 다가오는 발표 일정 (전 지표 통합) ----------------------------------
+    # 캘린더가 정확한 날짜를 준 지표는 소수다. 나머지를 비워 두면 스트립이
+    # '이번 주에 나오는 것' 만 보여주는데, 소비자가 묻는 것은 그게 아니다.
+    # 확정을 먼저 넣고, 확정이 없는 지표만 추정 구간으로 채운다.
+    # 정렬은 추정의 중앙값을 쓰되 화면에는 구간을 그대로 보여준다.
+    upcoming_all: list[dict] = []
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    for s in series_out:
+        if s["upcoming"]:
+            upcoming_all.append({
+                "seriesId": s["id"], "name": s["name"], "category": s["category"],
                 "releaseDate": s["upcoming"]["releaseDate"],
                 "forecast": s["upcoming"]["forecast"],
                 "previous": s["upcoming"]["previous"],
-            }
-            for s in series_out
-            if s["upcoming"]
-        ),
-        key=lambda x: x["releaseDate"],
-    )
+                "estimated": False,
+                "sortKey": s["upcoming"]["releaseDate"][:10],
+            })
+        elif s["estimatedNext"]:
+            e = s["estimatedNext"]
+            # 이미 지난 추정 구간은 '다가오는 발표' 가 아니다. 넣어 두면 12칸 중
+            # 한 칸을 지난 날짜가 차지하고 그만큼 진짜 예정이 밀려난다.
+            # (화면도 보는 날 기준으로 한 번 더 거른다 — JSON 은 하루 전 것일 수 있다)
+            if e["to"] < today_iso:
+                continue
+            upcoming_all.append({
+                "seriesId": s["id"], "name": s["name"], "category": s["category"],
+                "releaseDate": e["median"], "from": e["from"], "to": e["to"],
+                "sample": e["sample"], "inBand": e["inBand"],
+                "forecast": None, "previous": s["latest"]["actual"] if s["latest"] else None,
+                "estimated": True,
+                "sortKey": e["median"],
+            })
+    upcoming_all.sort(key=lambda x: x["sortKey"])
 
     # ---- 최근 발표 타임라인 -------------------------------------------------
     # 카테고리를 가로질러 '언제 무엇이 나왔나' 만 시간순으로 본다.

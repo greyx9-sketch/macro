@@ -56,6 +56,100 @@ function fmtDelta(unit, decimals, d) {
   }
 }
 
+/* ------------------------------------------------------------------- 툴팁 */
+
+// `title` 속성은 **터치에서 절대 열리지 않는다.** 화면에 title 이 72곳 있었고,
+// 그 중 ⓘ 표시는 '여기 설명이 있다' 고 약속까지 한다. 모바일 사용자에게는
+// 약속만 있고 내용은 없는 상태였다.
+//
+// 그래서 마우스·키보드·터치 세 경로를 모두 여는 작은 팝오버를 둔다.
+// 라이브러리는 쓰지 않는다 — 이 사이트는 빌드 체인이 없다.
+// 마크업 쪽은 `data-tip="…"` 만 쓰면 된다.
+let tipEl = null;
+let tipOwner = null;
+
+function tipNode() {
+  if (!tipEl) {
+    tipEl = document.createElement('div');
+    tipEl.className = 'tip';
+    tipEl.setAttribute('role', 'tooltip');
+    tipEl.id = 'tip-bubble';
+    document.body.appendChild(tipEl);
+  }
+  return tipEl;
+}
+
+function hideTip() {
+  if (!tipEl) return;
+  tipEl.classList.remove('on');
+  if (tipOwner) tipOwner.removeAttribute('aria-describedby');
+  tipOwner = null;
+}
+
+function showTip(el) {
+  const text = el.dataset.tip;
+  if (!text) return;
+  const t = tipNode();
+  t.textContent = text;
+  t.classList.add('on');
+  tipOwner = el;
+  el.setAttribute('aria-describedby', t.id);
+
+  // 좌우로 화면을 벗어나면 잘려서 못 읽는다. 뷰포트 안으로 밀어 넣는다.
+  const M = 8;
+  const r = el.getBoundingClientRect();
+  const w = t.offsetWidth, h = t.offsetHeight;
+  let x = r.left + r.width / 2 - w / 2;
+  x = Math.max(M, Math.min(x, document.documentElement.clientWidth - w - M));
+  // 위쪽에 자리가 없으면 아래에 붙인다.
+  const above = r.top - h - 8 >= M;
+  t.style.left = x + 'px';
+  t.style.top = (above ? r.top - h - 8 : r.bottom + 8) + 'px';
+}
+
+function wireTips(root) {
+  // 위임으로 처리한다. 카드·표는 매번 innerHTML 로 다시 그려지므로
+  // 요소마다 리스너를 달면 새로 그릴 때마다 전부 다시 달아야 한다.
+  const trigger = e => e.target.closest('[data-tip]');
+
+  root.addEventListener('pointerover', e => {
+    const el = trigger(e);
+    if (el && e.pointerType === 'mouse') showTip(el);
+  });
+  root.addEventListener('pointerout', e => {
+    if (trigger(e) && e.pointerType === 'mouse') hideTip();
+  });
+  root.addEventListener('focusin', e => { const el = trigger(e); if (el) showTip(el); });
+  root.addEventListener('focusout', e => { if (trigger(e)) hideTip(); });
+
+  // 터치. **캡처 단계여야 한다** — 버블 단계로 두면 카드의 클릭 처리기가 먼저 돌아
+  // stopPropagation 이 이미 늦다 (실측: 팁을 눌렀는데 상세 패널이 함께 열렸다).
+  root.addEventListener('click', e => {
+    const el = trigger(e);
+    if (!el) return;
+    // 카드·타임라인 행 안의 팁은 가로채지 않는다. 그 안은 통째로 <button> 이고,
+    // 눌렀을 때 열리는 상세 패널에 같은 설명이 본문으로 들어 있다.
+    // 여기서 가로채면 '카드를 눌렀는데 아무 일도 안 일어나는' 죽은 구역이 생긴다.
+    if (el.closest('button')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (tipOwner === el) hideTip(); else showTip(el);
+  }, true);
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-tip]')) hideTip();
+});
+addEventListener('scroll', hideTip, true);
+addEventListener('resize', hideTip);
+addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+
+// 팁을 다는 표식. 키보드로 닿아야 하므로 초점을 받을 수 있어야 한다.
+function tipMark(text, glyph = 'ⓘ', cls = 'tip-mark') {
+  return `<span class="${cls}" data-tip="${esc(text)}" tabindex="0"
+                role="button" aria-label="설명 보기">${glyph}</span>`;
+}
+
 // 상승 빨강 / 하락 파랑 / 보합 검정 — 엑셀 주7.
 // 색만으로 전달하지 않도록 기호를 함께 돌려준다.
 const EPS = 1e-12;
@@ -81,7 +175,7 @@ function prevDelta(r) {
 function surpriseTitle(s, r) {
   if (r.surpriseRaw === null || r.surpriseRaw === undefined) return '';
   if (r.surprise === r.surpriseRaw) return '';
-  return ` title="컨센서스 해상도 기준입니다. 정밀 기준으로는 ${
+  return ` data-tip="컨센서스 해상도 기준입니다. 정밀 기준으로는 ${
     fmtDelta(s.unit, s.decimals, r.surpriseRaw)}."`;
 }
 
@@ -130,9 +224,67 @@ function pathFor(points, x, y) {
   return points.map((p, i) => (i ? 'L' : 'M') + x(i).toFixed(2) + ' ' + y(p.v).toFixed(2)).join(' ');
 }
 
+// 기준시점이 건너뛰어진 구간을 실선으로 이으면 **없는 데이터를 그린 것**이 된다.
+// (2025-10 은 CPI 발표 자체가 없었다)
+//
+// x 축이 값의 순번이라 빠진 달만큼 간격이 벌어지지도 않는다. 그래서 선을 끊는 대신
+// 그 구간만 **점선**으로 잇는다 — 이어져 보이되 '여기는 관측이 없다' 가 드러난다.
+//
+// 월간·분기만 판정한다. 주간·일간 계열은 MAX_POINTS 다운샘플링을 거치므로
+// 간격이 벌어진 것이 결측인지 솎아낸 것인지 화면 쪽에서는 구분할 수 없다.
+const GAP_PERIOD_DAYS = { monthly: 31 * 1.6, quarterly: 92 * 1.6 };
+
+function pathSegments(points, x, y, frequency) {
+  const limit = GAP_PERIOD_DAYS[frequency];
+  const at = i => x(i).toFixed(2) + ' ' + y(points[i].v).toFixed(2);
+  if (!limit) return { solid: pathFor(points, x, y), dashed: '' };
+
+  const solid = [];
+  const dashed = [];
+  let run = ['M' + at(0)];
+  for (let i = 1; i < points.length; i++) {
+    const days = (Date.parse(points[i].d) - Date.parse(points[i - 1].d)) / 864e5;
+    if (days > limit) {
+      if (run.length > 1) solid.push(run.join(' '));
+      dashed.push('M' + at(i - 1) + ' L' + at(i));
+      run = ['M' + at(i)];
+    } else {
+      run.push('L' + at(i));
+    }
+  }
+  if (run.length > 1) solid.push(run.join(' '));
+  return { solid: solid.join(' '), dashed: dashed.join(' ') };
+}
+
+// 스파크라인이 덮는 기간. **개수가 아니라 시간으로 자른다.**
+//
+// 예전에는 월간 24점 / 일간·주간 90점이었는데, 그러면 같은 카테고리 안에서
+// 덮는 기간이 제각각인 카드가 같은 크기로 나란히 놓인다. 실측으로 금융 카테고리는
+// 미국 CDS 0.7년 · 한국 기준금리 4.3년이었고, 고용은 1.9년~5.7년이었다.
+// 폭이 같은데 기간이 다르면 **기울기 비교가 거짓말이 된다.**
+const SPARK_YEARS = 2;
+const SPARK_MAX_POINTS = 120;
+
+function sparkWindow(obs) {
+  if (!obs.length) return [];
+  const cut = new Date(obs[obs.length - 1].d);
+  cut.setFullYear(cut.getFullYear() - SPARK_YEARS);
+  const iso = cut.toISOString().slice(0, 10);
+  let pts = obs.filter(p => p.d >= iso);
+  // 2년치가 통째로 없는 계열(ISM 22개월)은 있는 만큼만 쓴다.
+  if (pts.length < 2) pts = obs.slice(-2);
+  if (pts.length > SPARK_MAX_POINTS) {
+    const step = pts.length / SPARK_MAX_POINTS;
+    const picked = [];
+    for (let i = 0; i < SPARK_MAX_POINTS; i++) picked.push(pts[Math.floor(i * step)]);
+    picked[picked.length - 1] = pts[pts.length - 1];   // 최신값은 절대 잃지 않는다
+    pts = picked;
+  }
+  return pts;
+}
+
 /** 카드용 스파크라인. 축·눈금 없이 형태만 전달한다. */
-function sparkline(obs, maxPoints) {
-  const pts = obs.slice(-maxPoints);
+function sparkline(pts) {
   if (pts.length < 2) {
     return '<svg class="spark" role="img" aria-label="추이 데이터 부족"></svg>';
   }
@@ -210,8 +362,13 @@ function lineChart(series, obs) {
     <svg class="chart" id="d-chart" viewBox="0 0 ${W} ${H}" role="img"
          aria-label="${esc(series.name)} 추이 ${obs.length}개 관측치">
       ${grid}${zero}
-      <path d="${pathFor(obs, x, y)}" fill="none" stroke="var(--series-1)"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${(() => {
+        const seg = pathSegments(obs, x, y, series.frequency);
+        return `${seg.dashed ? `<path d="${seg.dashed}" fill="none" stroke="var(--series-1)"
+            stroke-width="2" stroke-dasharray="3 4" opacity="0.55"/>` : ''}
+      <path d="${seg.solid}" fill="none" stroke="var(--series-1)"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      })()}
       <line id="d-cross" x1="0" x2="0" y1="${T}" y2="${H - B}"
             stroke="var(--baseline)" stroke-width="1" opacity="0"/>
       <circle id="d-dot" r="4" fill="var(--series-1)" stroke="var(--surface)"
@@ -304,7 +461,7 @@ function card(s) {
       if (read && read.tone) {
         const good = read.tone === '경기에 우호적';
         chips.push(`<span class="chip tone ${good ? 'tone-pos' : 'tone-neg'}"
-          title="값이 클수록 경제활동에 우호적인지를 지표별로 표시한 단순 기준입니다. 투자 판단이 아닙니다."
+          data-tip="값이 클수록 경제활동에 우호적인지를 지표별로 표시한 단순 기준입니다. 투자 판단이 아닙니다."
           >${esc(read.fact)} · ${esc(good ? '우호적' : '비우호적')}</span>`);
       } else if (read) {
         chips.push(`<span class="chip tone">${esc(read.fact)}</span>`);
@@ -315,7 +472,7 @@ function card(s) {
     if (d0 !== null) {
       const d = dirOf(d0);
       chips.push(`<span class="chip ${d.cls}"
-        title="직전 기준시점의 현재 확정치와 비교한 값입니다."
+        data-tip="직전 기준시점의 현재 확정치와 비교한 값입니다."
         ><span class="lbl">이전대비</span>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, d0))}</span>`);
     }
   }
@@ -324,21 +481,62 @@ function card(s) {
   }
 
   const valueTxt = L ? fmt(s.unit, s.decimals, L.actual) : '—';
-  const nextTxt = s.upcoming && s.upcoming.releaseDate
-    ? '다음 ' + fmtDate(s.upcoming.releaseDate)
+  const nxt = nextReleaseLabel(s);
+  const pts = sparkWindow(s.observations);
+  // 발밑 라벨은 **위 그림이 덮는 기간**이어야 한다. 전체 관측 수를 적어 두면
+  // 미국 CDS 카드처럼 '1200개 관측' 아래 0.7년치 그림이 놓인다 — 숫자가 그림을 설명하지 않는다.
+  const spanTxt = pts.length >= 2
+    ? `${fmtMonth(pts[0].d, 'monthly')} ~ ${fmtMonth(pts[pts.length - 1].d, 'monthly')}`
     : '';
 
-  return `<button class="card" data-id="${esc(s.id)}" type="button"
+  return `<button class="card${nxt.overdue ? ' overdue' : ''}" data-id="${esc(s.id)}" type="button"
                   aria-label="${esc(s.name)} 상세 보기">
     <div class="card-head">
       <span class="card-name">${esc(s.name)}</span>
       <span class="card-ref">${esc(L ? fmtMonth(L.refDate, s.frequency) : '—')}</span>
     </div>
     <div class="card-value${L && L.actual !== null ? '' : ' missing'}">${esc(valueTxt)}</div>
+    ${contextChip(s)}
     <div class="chips">${chips.join('')}</div>
-    ${sparkline(s.observations, s.frequency === 'daily' || s.frequency === 'weekly' ? 90 : 24)}
-    <div class="card-foot"><span>${esc(nextTxt)}</span><span>${s.observations.length}개 관측</span></div>
+    ${sparkline(pts)}
+    <div class="card-foot"><span class="${nxt.overdue ? 'overdue-txt' : ''}">${nxt.html}</span><span>${esc(spanTxt)}</span></div>
   </button>`;
+}
+
+/** 카드용 맥락 한 줄. '지금 3.5% 가 높은 건가' 에 대한 답. */
+function contextChip(s) {
+  const c = s.context;
+  if (!c || c.lo1y === null || c.hi1y === null) return '';
+  const rank = c.pct5y >= 50 ? `5년 상위 ${100 - c.pct5y}%` : `5년 하위 ${c.pct5y}%`;
+  return `<div class="ctx" data-tip="최근 1년 최저~최고와, 최근 5년 ${c.n5y}개 관측치 중 현재 값의 위치입니다."
+    >1년 ${esc(fmt(s.unit, s.decimals, c.lo1y))}~${esc(fmt(s.unit, s.decimals, c.hi1y))} · ${esc(rank)}</div>`;
+}
+
+// 다음 발표를 언제 보면 되나. 확정 > 추정 > 아무것도 없음 순.
+//
+// 추정 구간이 **이미 지났는데 값이 안 들어왔으면** 그건 그 자체로 신호다 —
+// 발표는 났는데 우리가 못 받았다는 뜻이다. 지금까지는 조용히 지난 달 값을 보여줬다.
+function nextReleaseLabel(s) {
+  if (s.upcoming && s.upcoming.releaseDate) {
+    return { html: '다음 ' + esc(fmtDate(s.upcoming.releaseDate)), overdue: false };
+  }
+  const e = s.estimatedNext;
+  if (!e) return { html: '', overdue: false };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const md = iso => iso.slice(5).replace('-', '/');
+  if (e.to < today) {
+    return {
+      html: `<span data-tip="과거 ${e.sample}회 기준 ${e.from} ~ ${e.to} 에 나왔어야 하는데 아직 값이 없습니다. 발표가 늦어졌거나 수집이 밀렸을 수 있습니다."
+             >발표 예정일 경과</span>`,
+      overdue: true,
+    };
+  }
+  return {
+    html: `<span data-tip="캘린더에 확정 일정이 없어 과거 ${e.sample}회의 발표 시점에서 추정했습니다 (그중 ${e.inBand}회가 이 구간)."
+           >다음 ${md(e.from)}~${md(e.to)} 예상</span>`,
+    overdue: false,
+  };
 }
 
 /* -------------------------------------------------------------- 타임라인 */
@@ -365,7 +563,7 @@ function timelineSection(data, byId) {
       : '<span class="tl-sur na">예측 없음</span>';
     const toneCell = read && read.tone
       ? `<span class="tl-tone ${read.tone === '경기에 우호적' ? 'tone-pos' : 'tone-neg'}"
-           title="값이 클수록 경제활동에 우호적인지를 지표별로 표시한 단순 기준입니다. 투자 판단이 아닙니다."
+           data-tip="값이 클수록 경제활동에 우호적인지를 지표별로 표시한 단순 기준입니다. 투자 판단이 아닙니다."
            >${esc(read.tone === '경기에 우호적' ? '우호적' : '비우호적')}</span>`
       : '';
 
@@ -447,12 +645,37 @@ function previousCell(s, r) {
     return `<td>${esc(shown)}</td>`;
   }
   return `<td>${esc(shown)}<span class="tag-revised"
-    title="발표 당시 ${esc(shown)} → 현재 ${esc(fmt(s.unit, s.decimals, r.prevActual))} (개정)"
+    data-tip="발표 당시 ${esc(shown)} → 현재 ${esc(fmt(s.unit, s.decimals, r.prevActual))} (개정)" tabindex="0" role="button" aria-label="개정 내역 보기"
     >↻</span></td>`;
 }
 
+// 기준시점 사이가 한 주기보다 벌어지면 그 사이 기간에는 발표가 없었다는 뜻이다.
+// 2025-10 CPI 가 그렇다 — 그 달은 아예 발표되지 않아 행 자체가 없고,
+// 표는 12-18 에서 10-24 로 조용히 건너뛴다. 사용자에게는 데이터가 깨진 것처럼 보인다.
+//
+// **이유는 쓰지 않는다.** 우리가 아는 것은 '그 기준시점의 발표가 없다' 까지다.
+// 셧다운이라고 단정하면 다른 사유일 때 거짓말이 된다.
+function missingRefs(s, newerRef, olderRef) {
+  const step = { monthly: 1, quarterly: 3 }[s.frequency];
+  if (!step) return [];                       // 주간·일간·이벤트는 주기가 고르지 않다
+  const out = [];
+  const d = new Date(olderRef + 'T00:00:00Z');
+  for (let i = 0; i < 24; i++) {              // 폭주 방지
+    d.setUTCMonth(d.getUTCMonth() + step);
+    const iso = d.toISOString().slice(0, 10);
+    if (iso >= newerRef) break;
+    out.push(iso);
+  }
+  return out.reverse();                       // 표는 최신순이다
+}
+
 function releaseTable(s) {
-  const rows = s.releases.map(r => {
+  const gapRow = ref => `<tr class="gap-row"><td colspan="7">
+      ${esc(fmtMonth(ref, s.frequency))} — 발표 없음</td></tr>`;
+
+  const rows = s.releases.map((r, i) => {
+    const prevRow = s.releases[i + 1];         // 한 칸 아래 = 더 오래된 기준시점
+    const gaps = prevRow ? missingRefs(s, r.refDate, prevRow.refDate) : [];
     const dPrev = prevDelta(r);
     const d = dirOf(dPrev);
     const ds = dirOf(r.surprise ?? null);
@@ -465,21 +688,22 @@ function releaseTable(s) {
       ${cell(r.actual)}${cell(r.forecast)}${previousCell(s, r)}
       <td class="${ds ? ds.cls : 'na'}"${surpriseTitle(s, r)}>${ds ? ds.mark + ' ' + esc(fmtDelta(s.unit, s.decimals, r.surprise)) : '—'}</td>
       <td class="${d ? d.cls : 'na'}">${d ? d.mark + ' ' + esc(fmtDelta(s.unit, s.decimals, dPrev)) : '—'}</td>
-    </tr>`;
+    </tr>${gaps.map(gapRow).join('')}`;
   }).join('');
 
   return `<div class="table-scroll"><table class="rel">
     <thead><tr>
       <th>발표일</th><th>기준시점</th><th>실제</th><th>예측</th>
-      <th title="발표 당시 공표된 직전 값입니다. 컨센서스 소스에서 오며 반올림돼 있고, 이후 개정으로 현재 계열값과 다를 수 있습니다.">이전 ⓘ</th>
-      <th title="컨센서스와 같은 자릿수로 맞춰 계산합니다. 발표된 값과 예측이 같으면 '부합'이 됩니다.">예측대비 ⓘ</th>
-      <th title="직전 기준시점의 현재 확정치와 비교한 값입니다. 위의 '이전'(발표 당시 값)이 아닙니다.">이전대비 ⓘ</th>
+      <th>이전 ${tipMark('발표 당시 공표된 직전 값입니다. 컨센서스 소스에서 오며 반올림돼 있고, 이후 개정으로 현재 계열값과 다를 수 있습니다.')}</th>
+      <th>예측대비 ${tipMark("컨센서스와 같은 자릿수로 맞춰 계산합니다. 발표된 값과 예측이 같으면 '부합'이 됩니다.")}</th>
+      <th>이전대비 ${tipMark("직전 기준시점의 현재 확정치와 비교한 값입니다. 위의 '이전'(발표 당시 값)이 아닙니다.")}</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="7" class="na">데이터 없음</td></tr>'}</tbody>
   </table></div>`;
 }
 
 function openDetail(s) {
+  if (!s) return;
   const dlg = document.getElementById('detail');
   document.getElementById('d-title').textContent = s.name;
 
@@ -491,7 +715,7 @@ function openDetail(s) {
 
   const body = document.getElementById('d-body');
 
-  function render(rangeKey) {
+  function render(rangeKey, resetScroll) {
     const obs = sliceByRange(s.observations, rangeKey);
     const revs = s.revisions.length
       ? `<h3 class="sub">개정 이력 (엑셀에는 없던 정보)</h3>
@@ -512,18 +736,74 @@ function openDetail(s) {
             k === 'all' ? '전체' : k.toUpperCase()}</button>`).join('')}
       </div>
       ${lineChart(s, obs)}
+      ${contextLine(s)}
+      ${nextLine(s)}
       ${surpriseBars(s)}
       <h3 class="sub">발표 내역</h3>
       ${releaseTable(s)}
-      ${revs}`;
+      ${revs}
+      ${detailFoot(s)}`;
 
     wireChartHover(s, obs);
     body.querySelectorAll('[data-range]').forEach(b =>
-      b.addEventListener('click', () => render(b.dataset.range)));
+      b.addEventListener('click', () => render(b.dataset.range, false)));
+
+    // 열 때만 맨 위로 올린다. 기간 버튼으로 다시 그릴 때도 위로 튀면
+    // 표를 보다가 기간을 바꾼 사람에게는 그것도 똑같은 버그다.
+    //
+    // **showModal() 뒤에 해야 한다.** 닫혀 있는 dialog 는 display:none 이라
+    // scrollTop 대입이 통째로 무시되고, 열리는 순간 이전 위치가 되살아난다.
+    if (resetScroll) {
+      if (!dlg.open) dlg.showModal();
+      body.scrollTop = 0;
+    }
   }
 
-  render(s.observations.length > 60 ? '1y' : 'all');
-  dlg.showModal();
+  render(s.observations.length > 60 ? '1y' : 'all', true);
+  if (!dlg.open) dlg.showModal();
+}
+
+/** 현재 값이 최근 이력의 어디쯤인가 — 차트만으로는 답이 안 나오는 질문. */
+function contextLine(s) {
+  const c = s.context;
+  if (!c) return '';
+  const parts = [];
+  if (c.lo1y !== null && c.hi1y !== null) {
+    parts.push(`최근 1년 ${esc(fmt(s.unit, s.decimals, c.lo1y))} ~ ${esc(fmt(s.unit, s.decimals, c.hi1y))}`);
+  }
+  // pct5y 는 '현재값보다 낮은 관측치의 비율' 이다. 그대로 '상위 N%' 라고 쓰면
+  // 바닥에 있는 값이 상위 98% 로 읽혀 정반대가 된다. 가까운 쪽 끝으로 말한다.
+  const rank = c.pct5y >= 50 ? `5년 상위 ${100 - c.pct5y}%` : `5년 하위 ${c.pct5y}%`;
+  parts.push(`${rank} (${c.n5y}개 중)`);
+  return `<p class="ctx-line">${parts.join(' · ')}</p>`;
+}
+
+/** 다음 발표 안내 — 카드 쪽 팁은 마우스 전용이므로 여기서는 본문으로 적는다. */
+function nextLine(s) {
+  if (s.upcoming && s.upcoming.releaseDate) {
+    return `<p class="next-line">다음 발표 <strong>${esc(fmtDate(s.upcoming.releaseDate))}</strong>
+      — 캘린더 확정 일정입니다.</p>`;
+  }
+  const e = s.estimatedNext;
+  if (!e) return '';
+  const today = new Date().toISOString().slice(0, 10);
+  if (e.to < today) {
+    return `<p class="next-line warn">과거 ${e.sample}회 기준으로 <strong>${esc(e.from)} ~ ${esc(e.to)}</strong>
+      에 나왔어야 하는데 아직 값이 없습니다. 발표가 늦어졌거나 수집이 밀렸을 수 있습니다.</p>`;
+  }
+  return `<p class="next-line">다음 발표 <strong>${esc(e.from)} ~ ${esc(e.to)}</strong> 예상
+    — 캘린더에 확정 일정이 없어 과거 ${e.sample}회의 발표 시점에서 추정했습니다
+    (그중 ${e.inBand}회가 이 구간). 날짜를 단정할 수 없어 구간으로 적습니다.</p>`;
+}
+
+/** 상세 패널 각주 — 전체 관측 수와 공식 일정 링크. */
+function detailFoot(s) {
+  const bits = [`전체 관측 ${s.observations.length}개`];
+  if (s.scheduleUrl) {
+    bits.push(`<a href="${esc(s.scheduleUrl)}" target="_blank" rel="noopener noreferrer"
+                  >공식 발표 일정 ↗</a>`);
+  }
+  return `<p class="detail-foot">${bits.join(' · ')}</p>`;
 }
 
 /* ------------------------------------------------------------------ 비교 */
@@ -642,6 +922,10 @@ function smallMultiples(list) {
   }).join('');
 }
 
+// 비교 보기는 언제나 전 구간(1990~)을 그렸다. 36년을 한 화면에 넣으면
+// 최근 몇 년의 움직임이 선 굵기 안으로 사라진다. 상세 패널과 같은 기간 선택을 준다.
+let compareRange = 'all';
+
 function renderCompare(data, byId) {
   const body = document.getElementById('c-body');
   const note = document.getElementById('c-note');
@@ -659,7 +943,14 @@ function renderCompare(data, byId) {
     }).join('')}</div>`;
   }).join('');
 
-  const list = compareSel.map(id => byId[id]);
+  // 기간을 자른 사본을 넘긴다. 차트 함수들은 s.observations 만 보므로 손댈 곳이 없다.
+  const list = compareSel.map(id => byId[id]).filter(Boolean).map(s =>
+    ({ ...s, observations: sliceByRange(s.observations, compareRange) }));
+  const rangeRow = `<div class="range-row">${
+    ['1y', '3y', '5y', 'all'].map(k =>
+      `<button class="ghost" data-crange="${k}" aria-pressed="${k === compareRange}">${
+        k === 'all' ? '전체' : k.toUpperCase()}</button>`).join('')}</div>`;
+
   let chart, legend = '', explain = '';
 
   if (!list.length) {
@@ -685,7 +976,15 @@ function renderCompare(data, byId) {
   }
 
   note.textContent = explain;
-  body.innerHTML = `<div class="c-picker">${picker}</div>${legend}${chart}`;
+  body.innerHTML = `<div class="c-picker">${picker}</div>${rangeRow}${legend}${chart}`;
+
+  // 선택이 바뀌면 주소도 따라가야 링크가 지금 보이는 것을 가리킨다.
+  // pushState 가 아니라 replaceState 다 — 체크 한 번마다 히스토리가 쌓이면
+  // 뒤로가기가 체크 되돌리기가 돼 버려서 '닫기' 로 쓸 수 없게 된다.
+  const syncHash = () => {
+    const h = '#compare=' + compareSel.join(',');
+    if (location.hash !== h) history.replaceState(null, '', h);
+  };
 
   body.querySelectorAll('.c-picker input').forEach(inp =>
     inp.addEventListener('change', () => {
@@ -693,6 +992,13 @@ function renderCompare(data, byId) {
       const i = compareSel.indexOf(id);
       if (i >= 0) { compareSel.splice(i, 1); releaseSlot(id); }
       else if (compareSel.length < COMPARE_MAX) { compareSel.push(id); slotFor(id); }
+      syncHash();
+      renderCompare(data, byId);
+    }));
+
+  body.querySelectorAll('[data-crange]').forEach(b =>
+    b.addEventListener('click', () => {
+      compareRange = b.dataset.crange;
       renderCompare(data, byId);
     }));
 }
@@ -706,7 +1012,7 @@ function freshness(data) {
       현재 데이터는 엑셀 백필분입니다.</span></div></div>`;
   }
   const now = Date.now();
-  const rows = data.sources.map(s => {
+  const graded = data.sources.map(s => {
     const when = s.finished_at || s.started_at;
     const ageH = when ? (now - Date.parse(when)) / 36e5 : Infinity;
     let cls = 'ok', label = '정상';
@@ -715,18 +1021,37 @@ function freshness(data) {
     const ageTxt = Number.isFinite(ageH)
       ? (ageH < 1 ? '방금 전' : ageH < 48 ? Math.round(ageH) + '시간 전' : Math.round(ageH / 24) + '일 전')
       : '기록 없음';
-    // 검증 경고가 수십 건 붙으면 메시지가 화면을 뒤덮어 정작 상태를 못 읽게 된다.
-    // 요약만 보여주고 전문은 title 속성으로 넘긴다.
-    const full = s.message || '';
-    const short = full.length > 160 ? full.slice(0, 160) + ' …' : full;
-    return `<div class="src-row">
+    return { ...s, cls, label, ageTxt, ageH };
+  });
+
+  const rows = graded.map(s => `<div class="src-row">
       <span class="src-name">${esc(s.source)}</span>
-      <span class="badge ${cls}">${label}</span>
-      <span class="src-when">${esc(ageTxt)}</span>
-      <span class="src-msg" title="${esc(full)}">${esc(short)}</span>
-    </div>`;
-  }).join('');
-  return `<div class="freshness"><h2>수집 상태</h2>${rows}</div>`;
+      <span class="badge ${s.cls}">${esc(s.label)}</span>
+      <span class="src-when">${esc(s.ageTxt)}</span>
+      <span class="src-msg">${esc(s.message || '')}</span>
+    </div>`).join('');
+
+  // 여기 있던 것은 수집기 로그 원문이었다 —
+  //   `17/17 계열, 관측치 22808건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | …`
+  // 소비자가 「계절조정 'SAAR' 확인됨」으로 할 수 있는 일이 없다.
+  // 소비자에게 필요한 것은 '지금 믿어도 되나' 하나다. 나머지는 접어 둔다.
+  // title 이 아니라 <details> 인 이유는 터치에서도 열려야 하기 때문이다.
+  const bad = graded.filter(s => s.cls !== 'ok');
+  const newest = Math.min(...graded.map(s => s.ageH));
+  const headline = bad.length
+    ? `<span class="badge fail">확인 필요</span> ${esc(bad.map(s => s.source).join(', '))} —
+       해당 지표는 마지막 성공 값을 그대로 보여줍니다`
+    : `<span class="badge ok">정상</span> ${graded.length}개 소스 모두 수집됨 ·
+       ${esc(Number.isFinite(newest) ? (newest < 1 ? '방금 전' : Math.round(newest) + '시간 전') : '기록 없음')}`;
+
+  return `<div class="freshness">
+    <h2>수집 상태</h2>
+    <p class="src-headline">${headline}</p>
+    <details class="src-detail"${bad.length ? ' open' : ''}>
+      <summary>소스별 자세히</summary>
+      ${rows}
+    </details>
+  </div>`;
 }
 
 /* ------------------------------------------------------------------ 조립 */
@@ -744,17 +1069,34 @@ function render(data) {
        실패했습니다. 해당 지표는 마지막 성공 값을 그대로 보여주고 있습니다 — 최신이 아닐 수 있습니다.</div>`
     : '';
 
-  const upcoming = data.upcoming.length ? `
+  // 확정 일정이 있는 지표는 7종뿐이다. 나머지는 이력에서 뽑은 구간으로 채우되
+  // 점선 테두리로 확정과 구분한다 — 추정을 확정처럼 보이게 하면 안 된다.
+  //
+  // 이미 지난 추정 구간은 뺀다. '다가오는 발표' 맨 앞에 지난 날짜가 놓이면
+  // 목록 전체를 못 믿게 된다. 그 지표는 카드 쪽에서 '발표 예정일 경과' 로 따로 알린다.
+  // JSON 이 만들어진 날이 아니라 **보는 날** 기준이어야 해서 여기서 거른다.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const upcomingList = data.upcoming.filter(u => !(u.estimated && u.to < todayIso));
+  const upcoming = upcomingList.length ? `
     <div class="upcoming">
       <h2>다가오는 발표</h2>
       <div class="upcoming-list">
-        ${data.upcoming.map(u => `<div class="upcoming-item">
-          <div class="upcoming-date">${esc(fmtDate(u.releaseDate))}</div>
-          <div class="upcoming-name">${esc(u.name)}</div>
-          <div class="upcoming-fc">예측 ${esc(u.forecast === null || u.forecast === undefined ? '—'
-            : fmt(data.series.find(s => s.id === u.seriesId).unit,
-                  data.series.find(s => s.id === u.seriesId).decimals, u.forecast))}</div>
-        </div>`).join('')}
+        ${upcomingList.map(u => {
+          const s = data.series.find(x => x.id === u.seriesId);
+          const md = iso => iso.slice(5).replace('-', '/');
+          const when = u.estimated ? `${md(u.from)}~${md(u.to)} 예상` : fmtDate(u.releaseDate);
+          const tip = u.estimated
+            ? ` data-tip="캘린더에 확정 일정이 없어 과거 ${u.sample}회의 발표 시점에서 추정했습니다 (그중 ${u.inBand}회가 이 구간)." tabindex="0"`
+            : '';
+          const fc = u.forecast === null || u.forecast === undefined
+            ? (u.estimated ? '이전 ' + fmt(s.unit, s.decimals, u.previous) : '예측 —')
+            : '예측 ' + fmt(s.unit, s.decimals, u.forecast);
+          return `<div class="upcoming-item${u.estimated ? ' est' : ''}"${tip}>
+            <div class="upcoming-date">${esc(when)}</div>
+            <div class="upcoming-name">${esc(u.name)}</div>
+            <div class="upcoming-fc">${esc(fc)}</div>
+          </div>`;
+        }).join('')}
       </div>
     </div>` : '';
 
@@ -770,8 +1112,9 @@ function render(data) {
   const byId = Object.fromEntries(data.series.map(s => [s.id, s]));
   app.innerHTML = banner + upcoming + timelineSection(data, byId) + sections + freshness(data);
 
+  // 클릭은 주소만 바꾼다. 실제로 여는 것은 applyRoute() 한 곳이다.
   app.querySelectorAll('.card, .tl-row').forEach(btn =>
-    btn.addEventListener('click', () => openDetail(byId[btn.dataset.id])));
+    btn.addEventListener('click', () => navigate(hashFor(btn.dataset.id))));
 
   document.getElementById('compare-open').addEventListener('click', () => {
     if (!compareSel.length) {
@@ -780,17 +1123,114 @@ function render(data) {
         if (byId[id] && compareSel.length < COMPARE_MAX) { compareSel.push(id); slotFor(id); }
       });
     }
-    renderCompare(data, byId);
-    document.getElementById('compare').showModal();
+    navigate('#compare=' + compareSel.join(','));
   });
+
+  ROUTE_DATA = { data, byId };
+  applyRoute();   // #cpi_yoy 로 직접 들어온 사람에게 그 패널을 열어 준다
+}
+
+/* --------------------------------------------------------------- 주소 연결 */
+
+// 지금까지 상세 패널을 열어도 URL 이 그대로였다. 결과적으로
+//   - 특정 지표를 가리키는 링크를 남에게 보낼 수 없고
+//   - 모바일에서 뒤로가기를 누르면 패널이 닫히는 게 아니라 **사이트를 떠난다**
+// 해시 하나로 둘 다 해결된다. 서버 설정이 필요 없어 GitHub Pages 에서도 그대로 된다.
+//
+// 상태 전이는 오직 해시가 만든다. 열기는 pushState 로 해시를 바꾸고,
+// 실제 표시는 popstate/hashchange 를 받는 applyRoute() 한 곳에서만 한다.
+// 그래야 '뒤로가기로 닫기' 와 '닫기 버튼' 이 서로 다른 경로로 갈라지지 않는다.
+let ROUTE_DATA = null;
+// 우리가 직접 쌓은 히스토리 항목인가.
+//
+// 닫을 때 무조건 history.back() 하면 **딥링크로 바로 들어온 사람은 사이트를 떠난다** —
+// 고치려던 바로 그 증상이다. 우리가 쌓은 항목일 때만 뒤로 가고,
+// 아니면 주소에서 해시만 지운다.
+let pushedByUs = false;
+
+function hashFor(id) { return '#' + encodeURIComponent(id); }
+
+function navigate(hash) {
+  if (location.hash === hash) { applyRoute(); return; }
+  // pushState 는 popstate 도 hashchange 도 발생시키지 않는다. 주소만 바뀌고
+  // 화면은 그대로인 상태가 되므로, 여기서 직접 경로를 적용해야 한다.
+  history.pushState(null, '', hash || location.pathname + location.search);
+  pushedByUs = true;
+  applyRoute();
+}
+
+function applyRoute() {
+  if (!ROUTE_DATA) return;
+  const detail = document.getElementById('detail');
+  const compare = document.getElementById('compare');
+  const raw = decodeURIComponent(location.hash.slice(1));
+
+  if (raw.startsWith('compare=')) {
+    const ids = raw.slice(8).split(',').filter(id => ROUTE_DATA.byId[id]);
+    if (ids.length) {
+      compareSel.length = 0;
+      ids.slice(0, COMPARE_MAX).forEach(id => { compareSel.push(id); slotFor(id); });
+      if (detail.open) detail.close();
+      renderCompare(ROUTE_DATA.data, ROUTE_DATA.byId);
+      if (!compare.open) compare.showModal();
+      return;
+    }
+  }
+
+  const s = ROUTE_DATA.byId[raw];
+  if (s) {
+    if (compare.open) compare.close();
+    openDetail(s);
+    return;
+  }
+  // 해시가 없거나 모르는 값이면 대시보드로. 없는 id 로 들어와도 조용히 넘어간다.
+  if (detail.open) detail.close();
+  if (compare.open) compare.close();
+}
+
+// 닫힐 때 주소를 되돌린다.
+//
+// dialog 의 `close` 이벤트 하나로 모으는 편이 깔끔해 보이지만 그렇게 하지 않았다.
+// 검증 중에 이 환경에서 `close` 가 관측되지 않는 경우를 만났고, 확인할 수 없는 것 위에
+// 주소 동기화를 얹을 수는 없다. 닫는 경로 셋(닫기 버튼·Esc·백드롭)을 모두
+// 이 함수로 직접 모은다 — 경로가 늘면 여기에 붙이면 된다.
+function closeDialogs() {
+  const d = document.getElementById('detail');
+  const c = document.getElementById('compare');
+  if (d.open) d.close();
+  if (c.open) c.close();
+  if (!location.hash) return;
+  if (pushedByUs) {
+    pushedByUs = false;
+    history.back();                 // 우리가 쌓은 항목 → 원래 보던 대시보드로
+  } else {
+    // 딥링크로 바로 들어온 경우. 뒤로 가면 사이트를 떠나므로 해시만 지운다.
+    history.replaceState(null, '', location.pathname + location.search);
+  }
 }
 
 /* ------------------------------------------------------------------- 시작 */
 
-document.getElementById('d-close').addEventListener('click', () =>
-  document.getElementById('detail').close());
-document.getElementById('c-close').addEventListener('click', () =>
-  document.getElementById('compare').close());
+document.getElementById('d-close').addEventListener('click', closeDialogs);
+document.getElementById('c-close').addEventListener('click', closeDialogs);
+
+// 백드롭(패널 바깥 어두운 영역) 클릭. 이벤트 대상이 dialog 자신이면 바깥이다.
+['detail', 'compare'].forEach(id => {
+  const dlg = document.getElementById(id);
+  dlg.addEventListener('click', e => { if (e.target === dlg) closeDialogs(); });
+});
+
+// Esc. 네이티브 동작이 dialog 를 닫아 버리므로 주소도 여기서 같이 맞춘다.
+// keydown 은 기본 동작보다 먼저 오므로 열려 있는지 판정할 수 있다.
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = document.getElementById('detail').open || document.getElementById('compare').open;
+  if (open) closeDialogs();
+}, true);
+
+addEventListener('popstate', applyRoute);
+addEventListener('hashchange', applyRoute);
+wireTips(document.body);
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
   const cur = document.documentElement.getAttribute('data-theme');
