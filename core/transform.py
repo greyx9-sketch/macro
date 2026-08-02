@@ -13,6 +13,20 @@ from typing import Optional
 
 Point = tuple[str, Optional[float]]  # (ref_date ISO, value)
 
+# 관측치 하나만으로는 계산할 수 없는 변환 — 다른 시점의 값이 있어야 한다.
+#
+# ★ 이 집합은 변환 정의 바로 옆에 둔다 ★
+#   전에는 fetchers/fred.py 가 따로 들고 있었는데, qoq 를 추가하면서 그쪽에
+#   등록하는 것을 잊었다. 그 결과 최초발표값 경로가 1개짜리 목록으로 전분기비를
+#   계산하려다 고용비용지수의 발표값 101건이 전부 비었다.
+#   변환을 추가하는 사람이 반드시 여기도 보게 되도록 같은 파일에 둔다.
+CROSS_PERIOD_TRANSFORMS = {"yoy", "mom", "qoq", "diff"}
+
+# 관측치 하나로 끝나는 변환. 위와 합쳐 apply_transform 이 아는 전부여야 한다.
+PER_OBSERVATION_TRANSFORMS = {"div100", "div1000"}
+
+SUPPORTED_TRANSFORMS = CROSS_PERIOD_TRANSFORMS | PER_OBSERVATION_TRANSFORMS
+
 
 def month_key(iso: str) -> str:
     """'2026-06-15' -> '2026-06-01'. 월간 계열의 기준시점 정규화."""
@@ -51,6 +65,13 @@ def apply_transform(points: list[Point], transform: Optional[str]) -> list[Point
     """
     if not transform:
         return points
+    if transform not in SUPPORTED_TRANSFORMS:
+        # 새 변환을 추가하면서 위 두 집합에 등록하지 않으면 여기서 멈춘다.
+        # 조용히 잘못된 값을 만드는 것보다 낫다.
+        raise ValueError(
+            f"알 수 없는 변환 '{transform}'. core/transform.py 의 "
+            f"CROSS_PERIOD_TRANSFORMS 또는 PER_OBSERVATION_TRANSFORMS 에 등록하세요."
+        )
 
     if transform == "div100":
         return [(d, None if v is None else v / 100.0) for d, v in points]

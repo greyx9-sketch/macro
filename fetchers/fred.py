@@ -26,7 +26,11 @@ from typing import Optional
 
 from core import series as series_mod
 from core.series import Series
-from core.transform import apply_transform, normalize_ref_date
+from core.transform import (
+    CROSS_PERIOD_TRANSFORMS,
+    apply_transform,
+    normalize_ref_date,
+)
 
 from .base import FetchError, FetchResult, guarded, http_get
 
@@ -37,7 +41,7 @@ SOURCE = "fred"
 # FRED 는 분당 120회를 허용한다. 24회 남짓이라 여유롭지만 매너 있게 간격을 둔다.
 _THROTTLE_SEC = 0.15
 
-# 여러 기간을 엮어 계산하는 변환.
+# 여러 기간을 엮어 계산하는 변환은 core/transform.py 가 정의한다.
 #
 # ★ 이런 변환에는 최초발표값(vintage) 을 쓰면 안 된다 ★
 #   최초발표 '수준값' 들은 서로 다른 시점에 공표됐고 그 사이에 벤치마크 개정이 끼어든다.
@@ -45,7 +49,9 @@ _THROTTLE_SEC = 0.15
 #   실제로 NFP 에서 2026-01 이 -899천명(현실에 없는 값), 2026-06 이 -17천명
 #   (정답 57천명) 으로 계산됐다.
 #   반면 단순 배율 변환(div100/div1000)이나 무변환은 관측치 하나로 끝나므로 안전하다.
-CROSS_PERIOD_TRANSFORMS = {"yoy", "mom", "diff"}
+#
+# 이 목록을 여기서 따로 들고 있다가 qoq 등록을 빠뜨려 고용비용지수 발표값이
+# 통째로 비는 일이 있었다. 이제 변환 정의와 같은 파일에서 가져온다.
 
 
 def api_key() -> str:
