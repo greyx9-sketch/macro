@@ -19,7 +19,8 @@
      위 두 판정은 둘 다 FRED 를 거친다. FRED 계열을 잘못 골랐거나 변환이 틀리면
      둘 다 통과하면서 값은 틀릴 수 있다. BLS 공개 API 에서 **수준값을 직접 받아
      우리 변환을 다시 계산해** 대조하면 FRED 를 거치지 않는 독립 경로가 된다.
-     API 키가 필요 없다.
+     API 키가 필요 없다 — 대신 **IP 당 하루 25회**다.
+     한도를 넘으면 '값이 다르다'가 아니라 '물어보지 못함' 으로 보고한다(종료 코드 3).
 
 사용법
 ------
@@ -66,6 +67,15 @@ BLS_SERIES: list[tuple[str, str, float]] = [
 BLS_API = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
 
 
+class BlsUnavailable(Exception):
+    """BLS 에 물어보지 못했다 — 값이 다르다는 뜻이 아니다.
+
+    v1 은 키 없이 쓸 수 있는 대신 **IP 당 하루 25회**다. 한도를 넘으면
+    '값이 원 통계기관과 다릅니다' 로 보고되는데, 그것은 거짓말이다.
+    못 물어본 것과 물어봤더니 달랐던 것은 완전히 다른 결론이므로 갈라 놓는다.
+    """
+
+
 def bls_levels(series_id: str, start_year: int, end_year: int) -> list[tuple[str, float]]:
     """BLS 공개 API v1 에서 월별 수준값. 키 불필요.
 
@@ -75,10 +85,16 @@ def bls_levels(series_id: str, start_year: int, end_year: int) -> list[tuple[str
     """
     url = f"{BLS_API}{series_id}?startyear={start_year}&endyear={end_year}"
     req = urllib.request.Request(url, headers={"User-Agent": "macro-dashboard-verify"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        payload = json.load(resp)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            payload = json.load(resp)
+    except OSError as exc:
+        raise BlsUnavailable(f"BLS 접속 실패: {exc}") from exc
     if payload.get("status") != "REQUEST_SUCCEEDED":
-        raise RuntimeError(f"BLS 응답 실패: {payload.get('message')}")
+        msg = " ".join(payload.get("message") or []) or str(payload.get("status"))
+        if "threshold" in msg:
+            raise BlsUnavailable("BLS 일일 한도 초과 (키 없는 v1 은 IP 당 25회/일)")
+        raise BlsUnavailable(f"BLS 응답 실패: {msg}")
     out = []
     for row in payload["Results"]["series"][0]["data"]:
         period = row["period"]
@@ -166,10 +182,15 @@ def verify_bls(conn, start_year: int, end_year: int, show: int) -> int:
     MIN_COMPARED = 12
 
     bad = 0
+    unreachable = 0
     for bls_id, sid, scale in BLS_SERIES:
         s = BY_ID[sid]
         try:
             raw = bls_levels(bls_id, start_year, end_year)
+        except BlsUnavailable as exc:
+            print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   물어보지 못함: {exc}")
+            unreachable += 1
+            continue
         except Exception as exc:  # noqa: BLE001
             print(f"{s.name_ko:<22}{'-':>6}{'-':>6}{'-':>8}   BLS 오류: {exc}")
             bad += 1
@@ -212,11 +233,19 @@ def verify_bls(conn, start_year: int, end_year: int, show: int) -> int:
     print("\n" + "=" * 70)
     print("'건너뜀' 은 BLS 쪽에 비교할 값이 없는 달입니다 —")
     print("구간 첫 달(전월비를 계산할 직전 달이 없음)과 2025-10 셧다운 미발표분입니다.")
-    if bad == 0:
+    if unreachable:
+        print(f"\n{unreachable}개 계열은 BLS 에 물어보지 못했습니다. **값이 다르다는 뜻이 아닙니다.**")
+        print("키 없는 v1 은 IP 당 하루 25회입니다. 내일 다시 돌리거나 시간을 두고 재시도하세요.")
+    if bad == 0 and not unreachable:
         print("모든 계열이 원 통계기관 값과 일치합니다.")
+    elif bad == 0:
+        print("물어본 계열은 전부 원 통계기관 값과 일치합니다.")
     else:
         print(f"{bad}개 계열이 원 통계기관 값과 다릅니다. 계열 ID 나 변환을 확인하세요.")
-    return 1 if bad else 0
+    # 못 물어본 것도 '검증 완료'로 통과시키면 안 된다. 다만 값 불일치와는 종료 코드를 나눈다.
+    if bad:
+        return 1
+    return 3 if unreachable else 0
 
 
 def main() -> int:

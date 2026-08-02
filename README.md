@@ -32,7 +32,7 @@ python scripts/import_excel.py "C:\Users\greyx\Desktop\매크로 머티리얼.xl
 
 # 3. 매핑이 맞는지 검증
 python scripts/verify.py
-python scripts/verify.py --bls    # 원 통계기관(BLS) 과 직접 대조 — API 키 불필요
+python scripts/verify.py --bls    # 원 통계기관(BLS) 과 직접 대조 — 키 불필요, IP 당 25회/일
 
 # 4. 수집 + 화면용 JSON 생성
 python scripts/collect.py
@@ -107,6 +107,9 @@ PCE YoY(m/m 만 제공), 10Y-2Y·CDS(원래 예측이 없는 지표), 한국 기
   비율 계열 발표의 24~36% 가 이 경우였다. 반올림 전 값은 툴팁에 남는다.
 
 `실제` 값 자체는 원 통계기관과 직접 대조해 확인한다 — `verify.py --bls` 참조.
+BLS 공개 API v1 은 키가 필요 없는 대신 **IP 당 하루 25회**다. 한도를 넘으면
+'값이 다르다'가 아니라 **'물어보지 못함'** 으로 보고하고 종료 코드 3 을 낸다 —
+못 물어본 것과 물어봤더니 달랐던 것은 다른 결론이므로 섞지 않는다.
 
 ### CDS 가 취약한 이유
 
