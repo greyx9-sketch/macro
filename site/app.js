@@ -461,8 +461,15 @@ fetch(DATA_URL, { cache: 'no-cache' })
   })
   .then(render)
   .catch(err => {
+    // 로컬 개발 안내는 로컬에서만 보여준다.
+    // 배포된 사이트에서 네트워크 오류를 만난 사용자에게 'http.server 로 띄우세요' 는
+    // 아무 도움이 되지 않고 오히려 혼란만 준다.
+    const isLocal = location.protocol === 'file:' ||
+                    /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    const hint = isLocal
+      ? '파일을 직접 열지 말고 <code>python -m http.server -d site</code> 로 띄우세요.'
+      : '잠시 후 새로고침해 주세요. 계속되면 데이터 파일이 아직 배포되지 않았을 수 있습니다.';
     document.getElementById('app').innerHTML =
       `<div class="error">데이터를 불러오지 못했습니다: ${esc(err.message)}<br>
-       <span style="color:var(--text-secondary);font-size:13px">
-       로컬에서 볼 때는 파일을 직접 열지 말고 <code>python -m http.server -d site</code> 로 띄우세요.</span></div>`;
+       <span style="color:var(--text-secondary);font-size:13px">${hint}</span></div>`;
   });
