@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Optional
@@ -170,6 +170,17 @@ def _quantile(sorted_vals: list[float], p: float) -> float:
     """0~1 분위. 표본이 작아 보간은 하지 않는다 — 가장 가까운 관측치를 그대로 쓴다."""
     i = round((len(sorted_vals) - 1) * p)
     return sorted_vals[min(len(sorted_vals) - 1, max(0, i))]
+
+
+def month_end(ym: str) -> str:
+    """'YYYY-MM' -> 그 달 말일의 'YYYY-MM-DD'.
+
+    월 단위 발표 예정을 날짜와 함께 정렬할 때 쓴다. 월초(01일)로 두면
+    '8월 중' 이 '8월 3일' 보다 앞서서, 가장 모호한 항목이 목록 맨 앞에 온다.
+    """
+    y, m = int(ym[:4]), int(ym[5:7])
+    nxt = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
+    return (nxt - timedelta(days=1)).isoformat()
 
 
 def next_ref_date(s: Series, ref: str) -> Optional[str]:
@@ -438,29 +449,48 @@ def build(conn) -> dict:
     upcoming_all: list[dict] = []
     today_iso = datetime.now(timezone.utc).date().isoformat()
     for s in series_out:
-        if s["upcoming"]:
-            upcoming_all.append({
-                "seriesId": s["id"], "name": s["name"], "category": s["category"],
-                "releaseDate": s["upcoming"]["releaseDate"],
-                "forecast": s["upcoming"]["forecast"],
-                "previous": s["upcoming"]["previous"],
-                "estimated": False,
-                "sortKey": s["upcoming"]["releaseDate"][:10],
-            })
-        elif s["estimatedNext"]:
-            e = s["estimatedNext"]
+        conf, est = s["upcoming"], s["estimatedNext"]
+
+        # 확정 발표일의 정밀도는 두 가지다 — 'YYYY-MM-DD' 와 'YYYY-MM'.
+        # 월 단위뿐이면 우리 추정 구간(예: 8/09~8/15)이 **더 많은 것을 말한다.**
+        # 지금까지는 확정이 무조건 이겨서 그 추정을 버렸다.
+        #
+        # 다만 추정이 확정 월과 어긋나면 추정을 버린다. 우리가 아는 사실
+        # (그 달에 나온다)을 추측으로 덮으면 안 된다.
+        use_est = bool(est) and (
+            not conf
+            or (len(conf["releaseDate"]) <= 7
+                and est["median"][:7] == conf["releaseDate"][:7])
+        )
+
+        if use_est:
             # 이미 지난 추정 구간은 '다가오는 발표' 가 아니다. 넣어 두면 12칸 중
             # 한 칸을 지난 날짜가 차지하고 그만큼 진짜 예정이 밀려난다.
             # (화면도 보는 날 기준으로 한 번 더 거른다 — JSON 은 하루 전 것일 수 있다)
-            if e["to"] < today_iso:
+            if est["to"] < today_iso:
                 continue
             upcoming_all.append({
                 "seriesId": s["id"], "name": s["name"], "category": s["category"],
-                "releaseDate": e["median"], "from": e["from"], "to": e["to"],
-                "sample": e["sample"], "inBand": e["inBand"],
-                "forecast": None, "previous": s["latest"]["actual"] if s["latest"] else None,
+                "releaseDate": est["median"], "from": est["from"], "to": est["to"],
+                "sample": est["sample"], "inBand": est["inBand"],
+                "forecast": conf["forecast"] if conf else None,
+                "previous": (conf["previous"] if conf
+                             else (s["latest"]["actual"] if s["latest"] else None)),
                 "estimated": True,
-                "sortKey": e["median"],
+                "sortKey": est["median"],
+            })
+        elif conf:
+            rd = conf["releaseDate"]
+            # 월 단위 값은 **그 달 말일**로 정렬한다. 월초로 두면 같은 달의
+            # 확정 날짜(08-03 …)보다 앞서서, 가장 모호한 항목이 맨 앞에 온다.
+            sort_key = rd[:10] if len(rd) > 7 else month_end(rd)
+            upcoming_all.append({
+                "seriesId": s["id"], "name": s["name"], "category": s["category"],
+                "releaseDate": rd,
+                "forecast": conf["forecast"],
+                "previous": conf["previous"],
+                "estimated": False,
+                "sortKey": sort_key,
             })
     upcoming_all.sort(key=lambda x: x["sortKey"])
 

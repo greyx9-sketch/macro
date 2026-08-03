@@ -435,21 +435,10 @@ function wireChartHover(series, obs) {
 
 /* ------------------------------------------------------------------ 카드 */
 
-function card(s) {
+/** 최신 발표의 요약 칩. **카드와 상세 헤더가 같은 함수를 쓴다** —
+ *  같은 칩을 두 벌의 코드로 만들면 언젠가 값이 갈린다. 그게 qoq 버그의 구조였다. */
+function latestChips(s) {
   const L = s.latest;
-
-  // 아직 한 번도 수집되지 않은 지표(새로 추가한 직후)는 빈 카드가 된다.
-  // 그대로 두면 고장난 것처럼 보이므로 상태를 분명히 밝힌다.
-  if (!L && !s.observations.length) {
-    return `<button class="card pending" data-id="${esc(s.id)}" type="button"
-                    aria-label="${esc(s.name)} — 아직 수집 전">
-      <div class="card-head"><span class="card-name">${esc(s.name)}</span></div>
-      <div class="card-value missing">—</div>
-      <div class="chips"><span class="chip plain">첫 수집 대기</span></div>
-      <div class="card-foot"><span>다음 실행에서 채워집니다</span><span></span></div>
-    </button>`;
-  }
-
   const chips = [];
 
   if (L) {
@@ -479,15 +468,31 @@ function card(s) {
   if (!chips.length) {
     chips.push(`<span class="chip plain">${L ? '비교값 없음' : '발표 대기'}</span>`);
   }
+  return chips;
+}
 
+function card(s) {
+  const L = s.latest;
+
+  // 아직 한 번도 수집되지 않은 지표(새로 추가한 직후)는 빈 카드가 된다.
+  // 그대로 두면 고장난 것처럼 보이므로 상태를 분명히 밝힌다.
+  if (!L && !s.observations.length) {
+    return `<button class="card pending" data-id="${esc(s.id)}" type="button"
+                    aria-label="${esc(s.name)} — 아직 수집 전">
+      <div class="card-head"><span class="card-name">${esc(s.name)}</span></div>
+      <div class="card-value missing">—</div>
+      <div class="chips"><span class="chip plain">첫 수집 대기</span></div>
+      <div class="card-foot"><span>다음 실행에서 채워집니다</span><span></span></div>
+    </button>`;
+  }
+
+  const chips = latestChips(s);
   const valueTxt = L ? fmt(s.unit, s.decimals, L.actual) : '—';
   const nxt = nextReleaseLabel(s);
   const pts = sparkWindow(s.observations);
-  // 발밑 라벨은 **위 그림이 덮는 기간**이어야 한다. 전체 관측 수를 적어 두면
-  // 미국 CDS 카드처럼 '1200개 관측' 아래 0.7년치 그림이 놓인다 — 숫자가 그림을 설명하지 않는다.
-  const spanTxt = pts.length >= 2
-    ? `${fmtMonth(pts[0].d, 'monthly')} ~ ${fmtMonth(pts[pts.length - 1].d, 'monthly')}`
-    : '';
+  // 오른쪽 칸에는 스파크라인이 덮는 기간을 적었다. 그런데 그 기간을 전 지표
+  // '최근 2년' 으로 통일한 순간, 22장이 사실상 같은 문자열을 반복하게 됐다 —
+  // 정보량 0. 규칙은 카드마다가 아니라 화면에 한 번만 적으면 된다(격자 위 한 줄).
 
   return `<button class="card${nxt.overdue ? ' overdue' : ''}" data-id="${esc(s.id)}" type="button"
                   aria-label="${esc(s.name)} 상세 보기">
@@ -499,31 +504,78 @@ function card(s) {
     ${contextChip(s)}
     <div class="chips">${chips.join('')}</div>
     ${sparkline(pts)}
-    <div class="card-foot"><span class="${nxt.overdue ? 'overdue-txt' : ''}">${nxt.html}</span><span>${esc(spanTxt)}</span></div>
+    <div class="card-foot"><span class="${nxt.overdue ? 'overdue-txt' : ''}">${nxt.html}</span></div>
   </button>`;
 }
+
+// '5년 상위 37%' 와 '5년 하위 20%' 가 섞여 있었다. 둘 다 작은 숫자를 쓰려고
+// 50% 에서 말을 뒤집은 것인데, 그러면 카드 여덟 장을 훑으며 눈으로 비교할 수가 없다 —
+// 매번 단어를 읽고 머릿속에서 뒤집어야 한다.
+//
+// 한 방향으로만 말한다. 0 = 5년 최저, 100 = 5년 최고. '위치' 에는 상·하 함의가
+// 없으므로, 바닥에 있는 값이 '상위 98%' 로 읽히던 정반대 오독도 생기지 않는다.
+function rankText(c) { return `5년 내 위치 ${c.pct5y}/100`; }
+const RANK_TIP = '최근 1년 최저~최고와, 최근 5년 관측치 중 현재 값의 위치입니다. '
+  + '0 이면 5년 최저, 100 이면 5년 최고입니다.';
 
 /** 카드용 맥락 한 줄. '지금 3.5% 가 높은 건가' 에 대한 답. */
 function contextChip(s) {
   const c = s.context;
   if (!c || c.lo1y === null || c.hi1y === null) return '';
-  const rank = c.pct5y >= 50 ? `5년 상위 ${100 - c.pct5y}%` : `5년 하위 ${c.pct5y}%`;
-  return `<div class="ctx" data-tip="최근 1년 최저~최고와, 최근 5년 ${c.n5y}개 관측치 중 현재 값의 위치입니다."
-    >1년 ${esc(fmt(s.unit, s.decimals, c.lo1y))}~${esc(fmt(s.unit, s.decimals, c.hi1y))} · ${esc(rank)}</div>`;
+  return `<div class="ctx" data-tip="${esc(RANK_TIP)} (${c.n5y}개 관측)"
+    >1년 ${esc(fmt(s.unit, s.decimals, c.lo1y))}~${esc(fmt(s.unit, s.decimals, c.hi1y))} · ${esc(rankText(c))}</div>`;
 }
+
+// '다음 발표' 라는 개념 자체가 없는 계열들. 빈 칸으로 두면 수집이 고장난 것처럼
+// 보이는데, 이유는 지표마다 다르다 — 하나는 시장 데이터고 하나는 정책 회의다.
+const MARKET_DAILY = new Set(['t10y2y', 'cds_us_5y', 'cds_kr_5y']);
+const POLICY_MEETING = new Set(['fed_funds_upper', 'bok_base_rate']);
 
 // 다음 발표를 언제 보면 되나. 확정 > 추정 > 아무것도 없음 순.
 //
 // 추정 구간이 **이미 지났는데 값이 안 들어왔으면** 그건 그 자체로 신호다 —
 // 발표는 났는데 우리가 못 받았다는 뜻이다. 지금까지는 조용히 지난 달 값을 보여줬다.
-function nextReleaseLabel(s) {
-  if (s.upcoming && s.upcoming.releaseDate) {
-    return { html: '다음 ' + esc(fmtDate(s.upcoming.releaseDate)), overdue: false };
-  }
-  const e = s.estimatedNext;
-  if (!e) return { html: '', overdue: false };
+// 확정 발표일이 '월' 단위뿐이면 우리 추정 구간이 더 많은 것을 말한다.
+// export_json.build() 의 '다가오는 발표' 와 **같은 규칙**이어야 한다 —
+// 카드가 '2026-08 중' 이라 하는데 위 목록은 '08/09~08/15' 라고 하면 둘 다 못 믿는다.
+function useEstimate(s) {
+  const c = s.upcoming, e = s.estimatedNext;
+  if (!e) return false;
+  if (!c || !c.releaseDate) return true;
+  return c.releaseDate.length <= 7 && e.median.slice(0, 7) === c.releaseDate.slice(0, 7);
+}
 
+function nextReleaseLabel(s) {
   const today = new Date().toISOString().slice(0, 10);
+
+  if (s.upcoming && s.upcoming.releaseDate && !useEstimate(s)) {
+    const rd = s.upcoming.releaseDate;
+    // '2026-08-07' 보다 '3일 뒤' 가 먼저 읽힌다. 확정 일정에만 붙인다 —
+    // 추정은 구간이라 D-day 라는 개념이 없다.
+    const gap = rd.length > 7 ? gapLabel(dayGap(rd, today)) : null;
+    return {
+      html: '다음 ' + esc(fmtDate(rd)) + (gap ? ` · ${esc(gap)}` : ''),
+      overdue: false,
+    };
+  }
+
+  const e = s.estimatedNext;
+  if (!e) {
+    if (MARKET_DAILY.has(s.id)) {
+      return { html: '<span data-tip="발표 일정이 있는 통계가 아니라 매 영업일 갱신되는 시장 데이터입니다.">매 영업일 갱신</span>', overdue: false };
+    }
+    if (POLICY_MEETING.has(s.id)) {
+      // 카드 안에 <a> 를 넣지 않는다 — <button> 안의 링크는 유효하지 않은 HTML 이고
+      // Chrome 이 포커스를 버튼으로 되돌린다. 공식 일정 링크는 상세 각주에 이미 있다.
+      return { html: '<span data-tip="정기 발표가 아니라 정책 회의에서 결정됩니다. 공식 일정 링크는 상세 패널 맨 아래에 있습니다.">정책회의에서 결정</span>', overdue: false };
+    }
+    // 빈 칸으로 두면 수집이 고장난 것처럼 보인다. 모른다는 것을 모른다고 적는다.
+    return {
+      html: '<span data-tip="캘린더에 확정 일정이 없고, 과거 발표 시점의 편차가 커서(구간 폭 3주 초과) 추정하지 않았습니다. 없는 규칙을 있는 척하지 않습니다.">다음 발표일 미정</span>',
+      overdue: false,
+    };
+  }
+
   const md = iso => iso.slice(5).replace('-', '/');
   if (e.to < today) {
     return {
@@ -537,6 +589,107 @@ function nextReleaseLabel(s) {
            >다음 ${md(e.from)}~${md(e.to)} 예상</span>`,
     overdue: false,
   };
+}
+
+/* ------------------------------------------------------- 다가오는 발표 */
+
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 그 날짜가 속한 주의 월요일. 주차 묶음의 기준선이다. */
+function weekStartOf(iso) {
+  const d = new Date(iso.slice(0, 10) + 'T00:00:00Z');
+  const shift = (d.getUTCDay() + 6) % 7;          // 월=0 … 일=6
+  d.setUTCDate(d.getUTCDate() - shift);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 오늘이 며칠 뒤인지 — '2026-08-07' 보다 '3일 뒤' 가 먼저 읽힌다. */
+function dayGap(iso, todayIso) {
+  const a = Date.parse(iso.slice(0, 10) + 'T00:00:00Z');
+  const b = Date.parse(todayIso + 'T00:00:00Z');
+  return Math.round((a - b) / 86400000);
+}
+function gapLabel(n) {
+  if (n === 0) return '오늘';
+  if (n === 1) return '내일';
+  if (n < 0) return null;
+  return `${n}일 뒤`;
+}
+
+// 가로로 늘어놓으면 12개 중 4개가 화면 밖으로 나가고, 8/07 다음이 곧장 10/25 인
+// **2.5개월 구멍이 균일한 카드 줄**로 표현된다. 세로로 흐르는 주차 묶음이라야
+// 구멍이 구멍으로 보인다.
+//
+// 묶음 기준은 sortKey 다. 정렬키와 같아야 그룹이 목록 안에서 **연속**하고,
+// 추정 항목(구간)도 확정 항목과 같은 자로 재게 된다.
+function upcomingSection(data) {
+  // 이미 지난 추정 구간은 뺀다. '다가오는 발표' 맨 앞에 지난 날짜가 놓이면
+  // 목록 전체를 못 믿게 된다. 그 지표는 카드 쪽에서 '발표 예정일 경과' 로 따로 알린다.
+  // JSON 이 만들어진 날이 아니라 **보는 날** 기준이어야 해서 여기서 거른다.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const list = (data.upcoming || []).filter(u => !(u.estimated && u.to < todayIso));
+  if (!list.length) return '';
+
+  const byId = Object.fromEntries(data.series.map(s => [s.id, s]));
+  const thisWeek = weekStartOf(todayIso);
+  const nextWeek = weekStartOf(new Date(Date.parse(thisWeek + 'T00:00:00Z') + 7 * 86400000)
+    .toISOString().slice(0, 10));
+
+  const bucketOf = u => {
+    const w = weekStartOf(u.sortKey);
+    if (w <= thisWeek) return 0;
+    if (w === nextWeek) return 1;
+    return 2;
+  };
+  const TITLES = ['이번 주', '다음 주', '그 이후'];
+
+  const md = iso => iso.slice(5).replace('-', '/');
+  let lastDay = null;
+
+  const row = u => {
+    const s = byId[u.seriesId];
+    const gap = u.estimated ? null : gapLabel(dayGap(u.releaseDate, todayIso));
+    let when, tip = '';
+    if (u.estimated) {
+      when = `${md(u.from)}~${md(u.to)} 예상`;
+      tip = ` data-tip="캘린더에 확정 일정이 없어 과거 ${u.sample}회의 발표 시점에서 추정했습니다 (그중 ${u.inBand}회가 이 구간)." tabindex="0"`;
+    } else if (u.releaseDate.length <= 7) {
+      when = fmtDate(u.releaseDate);
+    } else {
+      const day = u.releaseDate.slice(0, 10);
+      const wd = WEEKDAY_KO[new Date(day + 'T00:00:00Z').getUTCDay()];
+      // 같은 날 여러 건이면 날짜는 첫 줄에만 — 타임라인과 같은 규칙이다.
+      when = day === lastDay ? '' : `${md(day)} ${wd}`;
+      lastDay = day;
+    }
+
+    const fc = u.forecast === null || u.forecast === undefined
+      ? (s && u.previous !== null && u.previous !== undefined
+          ? '이전 ' + fmt(s.unit, s.decimals, u.previous) : '')
+      : '예측 ' + fmt(s.unit, s.decimals, u.forecast);
+
+    return `<div class="up-row${u.estimated ? ' est' : ''}"${tip}>
+      <span class="up-when">${esc(when)}</span>
+      <span class="up-name">${esc(u.name)}</span>
+      <span class="up-fc">${esc(fc)}</span>
+      <span class="up-gap">${esc(gap || '')}</span>
+    </div>`;
+  };
+
+  // 헤더와 행을 **한 grid 안에** 형제로 놓는다. 그룹마다 따로 격자를 만들면
+  // '08/09~08/15 예상' 이 있는 그룹과 '08/03 월' 뿐인 그룹의 첫 열 폭이 갈린다 —
+  // 최근 발표 목록에서 subgrid 로 고쳤던 것과 같은 문제다.
+  const groups = TITLES.map((title, i) => {
+    const items = list.filter(u => bucketOf(u) === i);
+    if (!items.length) return '';       // 빈 구간은 헤더째 생략한다
+    lastDay = null;                     // 그룹이 바뀌면 날짜를 다시 적는다
+    return `<h3 class="up-head">${title}</h3>${items.map(row).join('')}`;
+  }).join('');
+
+  return `<div class="upcoming">
+    <h2>다가오는 발표</h2>
+    <div class="up-list">${groups}</div>
+  </div>`;
 }
 
 /* -------------------------------------------------------------- 타임라인 */
@@ -561,6 +714,11 @@ function timelineSection(data, byId) {
     const surpriseCell = d
       ? `<span class="tl-sur ${d.cls}"${surpriseTitle(s, t)}>${d.mark} ${esc(fmtDelta(s.unit, s.decimals, surprise))}</span>`
       : '<span class="tl-sur na">예측 없음</span>';
+    // 예측이 없으면 이 칸과 서프라이즈 칸이 나란히 '예측이 없다'고 두 번 말한다.
+    // 셀은 남기고 내용만 비운다 — 트랙 수가 줄면 subgrid 열 정렬이 도로 깨진다.
+    const fcCell = t.forecast === null || t.forecast === undefined
+      ? ''
+      : `예측 ${esc(fmt(s.unit, s.decimals, t.forecast))}`;
     const toneCell = read && read.tone
       ? `<span class="tl-tone ${read.tone === '경기에 우호적' ? 'tone-pos' : 'tone-neg'}"
            data-tip="값이 클수록 경제활동에 우호적인지를 지표별로 표시한 단순 기준입니다. 투자 판단이 아닙니다."
@@ -573,13 +731,14 @@ function timelineSection(data, byId) {
       <span class="tl-name">${esc(t.name)}</span>
       <span class="tl-ref">${esc(fmtMonth(t.refDate, s.frequency))}</span>
       <span class="tl-actual">${esc(fmt(s.unit, s.decimals, t.actual))}</span>
-      <span class="tl-fc">예측 ${esc(fmt(s.unit, s.decimals, t.forecast))}</span>
+      <span class="tl-fc">${fcCell}</span>
       ${surpriseCell}${toneCell}
     </button>`;
   }).join('');
 
+  // 색 규칙이 카드 22장 **아래** 푸터에만 있었다. 색을 처음 마주치는 곳에 적는다.
   return `<section class="timeline">
-    <h2>최근 발표</h2>
+    <h2>최근 발표 <span class="legend">▲ 상승 · ▼ 하락 — 방향이지 좋고 나쁨이 아닙니다</span></h2>
     <div class="tl-list">${rows}</div>
   </section>`;
 }
@@ -589,31 +748,46 @@ function surpriseBars(series) {
   const h = series.surpriseHistory || [];
   if (h.length < 2) return '';
 
-  const W = 820, H = 92, PAD = 18, GAP = 3;
+  // 왼쪽은 '상회/하회' 라벨 자리라 오른쪽보다 넓다.
+  const W = 820, H = 92, LPAD = 36, RPAD = 18, GAP = 3;
+  const span = W - LPAD - RPAD;
   const vals = h.map(p => p.value);
   const mx = Math.max(...vals.map(Math.abs)) || 1;
   const mid = H / 2;
-  const bw = (W - PAD * 2) / h.length - GAP;
+  const bw = span / h.length - GAP;
   const scale = (H / 2 - 16) / mx;
 
   const bars = h.map((p, i) => {
-    const x = PAD + i * ((W - PAD * 2) / h.length);
+    const x = LPAD + i * (span / h.length);
     const hgt = Math.max(1, Math.abs(p.value) * scale);
     const y = p.value >= 0 ? mid - hgt : mid;
     const cls = dirOf(p.value).cls;
+    // SVG <title> 은 마우스 전용이다 — title 속성 108곳을 data-tip 으로 바꾼 이유가
+    // 그것인데 여기만 남아 있었다. 같은 팝오버를 쓰면 터치에서도 열린다.
     return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}"
-              height="${hgt.toFixed(1)}" rx="2" class="sbar ${cls}">
-              <title>${esc(fmtMonth(p.refDate, series.frequency))} ${esc(fmtDelta(series.unit, series.decimals, p.value))}</title>
-            </rect>`;
+              height="${hgt.toFixed(1)}" rx="2" class="sbar ${cls}"
+              data-tip="${esc(fmtMonth(p.refDate, series.frequency))} ${esc(fmtDelta(series.unit, series.decimals, p.value))}"/>`;
   }).join('');
+
+  // 어느 막대가 언제인지 말해 주는 것이 없었다. 첫·중간·마지막 셋만 적는다.
+  const at = i => LPAD + i * (span / h.length) + bw / 2;
+  const xi = h.length >= 3 ? [0, Math.floor((h.length - 1) / 2), h.length - 1] : [0, h.length - 1];
+  const xlab = [...new Set(xi)].map((i, k, arr) =>
+    `<text x="${at(i).toFixed(1)}" y="${H - 1}" font-size="10" fill="var(--text-muted)"
+       text-anchor="${k === 0 ? 'start' : k === arr.length - 1 ? 'end' : 'middle'}"
+       >${esc(fmtMonth(h[i].refDate, series.frequency))}</text>`).join('');
 
   const beats = h.filter(p => p.value > 0).length;
   return `<h3 class="sub">서프라이즈 추이 <span class="sub-note">최근 ${h.length}회 중 ${beats}회 예상 상회</span></h3>
     <svg class="sbars" viewBox="0 0 ${W} ${H}" role="img"
          aria-label="최근 ${h.length}회 서프라이즈. ${beats}회 예상 상회">
-      <line x1="${PAD}" x2="${W - PAD}" y1="${mid}" y2="${mid}"
+      <line x1="${LPAD}" x2="${W - RPAD}" y1="${mid}" y2="${mid}"
             stroke="var(--baseline)" stroke-width="1"/>
-      ${bars}
+      <text x="${LPAD - 6}" y="${(mid - 5).toFixed(1)}" font-size="10" text-anchor="end"
+            fill="var(--text-muted)">상회</text>
+      <text x="${LPAD - 6}" y="${(mid + 12).toFixed(1)}" font-size="10" text-anchor="end"
+            fill="var(--text-muted)">하회</text>
+      ${bars}${xlab}
     </svg>`;
 }
 
@@ -669,12 +843,29 @@ function missingRefs(s, newerRef, olderRef) {
   return out.reverse();                       // 표는 최신순이다
 }
 
-function releaseTable(s) {
+/** 기간 버튼과 같은 자로 발표 내역을 자른다.
+ *
+ *  지금까지 1Y 를 눌러도 표는 60행·2021년까지 그대로였다 — 기간 선택이
+ *  차트에만 걸려 있어서, 패널이 3.3화면짜리가 됐다. `sliceByRange` 와
+ *  **같은 컷 날짜**를 써야 차트와 표가 같은 구간을 말한다. */
+function sliceReleases(s, key) {
+  if (key === 'all' || !s.releases.length) return s.releases;
+  const months = key === '1y' ? 12 : key === '3y' ? 36 : 60;
+  const newest = s.releases[0].refDate;        // 표는 최신순이다
+  const cut = new Date(newest + 'T00:00:00Z');
+  cut.setUTCMonth(cut.getUTCMonth() - months);
+  const iso = cut.toISOString().slice(0, 10);
+  const out = s.releases.filter(r => r.refDate >= iso);
+  return out.length >= 2 ? out : s.releases;   // sliceByRange 와 같은 방어
+}
+
+function releaseTable(s, rangeKey) {
   const gapRow = ref => `<tr class="gap-row"><td colspan="7">
       ${esc(fmtMonth(ref, s.frequency))} — 발표 없음</td></tr>`;
 
-  const rows = s.releases.map((r, i) => {
-    const prevRow = s.releases[i + 1];         // 한 칸 아래 = 더 오래된 기준시점
+  const shown = sliceReleases(s, rangeKey);
+  const rows = shown.map((r, i) => {
+    const prevRow = shown[i + 1];              // 한 칸 아래 = 더 오래된 기준시점
     const gaps = prevRow ? missingRefs(s, r.refDate, prevRow.refDate) : [];
     const dPrev = prevDelta(r);
     const d = dirOf(dPrev);
@@ -699,13 +890,23 @@ function releaseTable(s) {
       <th>이전대비 ${tipMark("직전 기준시점의 현재 확정치와 비교한 값입니다. 위의 '이전'(발표 당시 값)이 아닙니다.")}</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="7" class="na">데이터 없음</td></tr>'}</tbody>
-  </table></div>`;
+  </table></div>
+  <p class="table-foot">${shown.length === s.releases.length
+    ? `전체 ${s.releases.length}건`
+    : `${rangeKey === 'all' ? '전체' : rangeKey.toUpperCase()} 기준 ${shown.length}건 · 전체 ${s.releases.length}건`}</p>`;
 }
 
 function openDetail(s) {
   if (!s) return;
   const dlg = document.getElementById('detail');
   document.getElementById('d-title').textContent = s.name;
+
+  const L = s.latest;
+  document.getElementById('d-now').innerHTML = L
+    ? `<span class="d-now-val">${esc(fmt(s.unit, s.decimals, L.actual))}</span>
+       <span class="d-now-ref">${esc(fmtMonth(L.refDate, s.frequency))}</span>
+       <span class="chips">${latestChips(s).join('')}</span>`
+    : '<span class="d-now-ref">아직 수집된 발표가 없습니다</span>';
 
   const notes = [];
   if (s.note) notes.push(s.note);
@@ -740,7 +941,7 @@ function openDetail(s) {
       ${nextLine(s)}
       ${surpriseBars(s)}
       <h3 class="sub">발표 내역</h3>
-      ${releaseTable(s)}
+      ${releaseTable(s, rangeKey)}
       ${revs}
       ${detailFoot(s)}`;
 
@@ -771,21 +972,31 @@ function contextLine(s) {
   if (c.lo1y !== null && c.hi1y !== null) {
     parts.push(`최근 1년 ${esc(fmt(s.unit, s.decimals, c.lo1y))} ~ ${esc(fmt(s.unit, s.decimals, c.hi1y))}`);
   }
-  // pct5y 는 '현재값보다 낮은 관측치의 비율' 이다. 그대로 '상위 N%' 라고 쓰면
-  // 바닥에 있는 값이 상위 98% 로 읽혀 정반대가 된다. 가까운 쪽 끝으로 말한다.
-  const rank = c.pct5y >= 50 ? `5년 상위 ${100 - c.pct5y}%` : `5년 하위 ${c.pct5y}%`;
-  parts.push(`${rank} (${c.n5y}개 중)`);
+  // pct5y 는 '현재값보다 낮은 관측치의 비율' 이다. 0 = 5년 최저, 100 = 5년 최고.
+  parts.push(`${rankText(c)} (0 = 5년 최저, 100 = 5년 최고 · ${c.n5y}개 관측)`);
   return `<p class="ctx-line">${parts.join(' · ')}</p>`;
 }
 
 /** 다음 발표 안내 — 카드 쪽 팁은 마우스 전용이므로 여기서는 본문으로 적는다. */
 function nextLine(s) {
-  if (s.upcoming && s.upcoming.releaseDate) {
+  if (s.upcoming && s.upcoming.releaseDate && !useEstimate(s)) {
     return `<p class="next-line">다음 발표 <strong>${esc(fmtDate(s.upcoming.releaseDate))}</strong>
       — 캘린더 확정 일정입니다.</p>`;
   }
   const e = s.estimatedNext;
-  if (!e) return '';
+  if (!e) {
+    if (MARKET_DAILY.has(s.id)) {
+      return `<p class="next-line">발표 일정이 있는 통계가 아니라 <strong>매 영업일 갱신</strong>되는
+        시장 데이터입니다. 그래서 예측·서프라이즈도 없습니다.</p>`;
+    }
+    if (POLICY_MEETING.has(s.id)) {
+      return `<p class="next-line">정기 발표가 아니라 <strong>정책 회의에서 결정</strong>됩니다.
+        회의 일정은 아래 공식 링크에서 확인할 수 있습니다.</p>`;
+    }
+    return `<p class="next-line">다음 발표일을 <strong>적지 않습니다</strong> — 캘린더에 확정 일정이 없고,
+      과거 발표 시점의 편차가 커서(구간 폭 3주 초과) 구간으로도 말할 수 없습니다.
+      없는 규칙을 있는 것처럼 적는 것보다 낫습니다.</p>`;
+  }
   const today = new Date().toISOString().slice(0, 10);
   if (e.to < today) {
     return `<p class="next-line warn">과거 ${e.sample}회 기준으로 <strong>${esc(e.from)} ~ ${esc(e.to)}</strong>
@@ -888,9 +1099,10 @@ function smallMultiples(list) {
   const all = list.flatMap(s => s.observations);
   const x0 = Math.min(...all.map(p => dayNum(p.d)));
   const x1 = Math.max(...all.map(p => dayNum(p.d)));
+  const SW = 820, SL = 62, SR = 10;
 
-  return list.map(s => {
-    const W = 820, H = 92, L = 62, R = 10, T = 8, B = 16;
+  const panels = list.map(s => {
+    const W = SW, H = 92, L = SL, R = SR, T = 8, B = 16;
     const pts = s.observations;
     if (pts.length < 2) return '';
     let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v));
@@ -920,11 +1132,35 @@ function smallMultiples(list) {
       </svg>
     </div>`;
   }).join('');
+
+  // x 도메인은 이미 패널 전체가 공유하는데(x0/x1), **그 사실이 화면에 안 보였다.**
+  // 축 텍스트가 y 최소·최대 둘뿐이라, 이력이 짧은 계열(ISM 2024-09~)이
+  // 오른쪽 끝에 몰려 그려지는 것이 렌더링 오류처럼 읽혔다.
+  //
+  // 축은 **맨 아래에 하나만** 그린다. 패널마다 반복하면 시끄럽고,
+  // 하나면 '이 x 는 모든 패널에 같다' 가 그림 자체로 말해진다.
+  const AH = 18;
+  const axis = [0, 0.5, 1].map((f, i, arr) => {
+    const iso = new Date((x0 + (x1 - x0) * f) * 86400000).toISOString().slice(0, 7);
+    const px = SL + f * (SW - SL - SR);
+    return `<text x="${px.toFixed(1)}" y="12" font-size="10.5" fill="var(--text-muted)"
+      text-anchor="${i === 0 ? 'start' : i === arr.length - 1 ? 'end' : 'middle'}">${esc(iso)}</text>`;
+  }).join('');
+
+  return panels + `<svg class="sm-axis" viewBox="0 0 ${SW} ${AH}" role="img"
+      aria-label="가로축: ${esc(new Date(x0 * 86400000).toISOString().slice(0, 7))}부터
+                  ${esc(new Date(x1 * 86400000).toISOString().slice(0, 7))}까지">
+      <line x1="${SL}" x2="${SW - SR}" y1="1" y2="1" stroke="var(--gridline)" stroke-width="1"/>
+      ${axis}
+    </svg>
+    <p class="sm-note">가로축은 모든 패널이 같습니다. 선이 없는 구간은 그 지표의 데이터가 없는 기간입니다.</p>`;
 }
 
 // 비교 보기는 언제나 전 구간(1990~)을 그렸다. 36년을 한 화면에 넣으면
 // 최근 몇 년의 움직임이 선 굵기 안으로 사라진다. 상세 패널과 같은 기간 선택을 준다.
-let compareRange = 'all';
+// 기본을 '전체' 로 두면 COVID 스파이크가 화면을 지배해 최근 몇 년의 움직임이
+// 선 굵기 안으로 사라진다. 36년을 보고 싶은 사람은 버튼 하나만 더 누르면 된다.
+let compareRange = '5y';
 
 function renderCompare(data, byId) {
   const body = document.getElementById('c-body');
@@ -1069,42 +1305,16 @@ function render(data) {
        실패했습니다. 해당 지표는 마지막 성공 값을 그대로 보여주고 있습니다 — 최신이 아닐 수 있습니다.</div>`
     : '';
 
-  // 확정 일정이 있는 지표는 7종뿐이다. 나머지는 이력에서 뽑은 구간으로 채우되
-  // 점선 테두리로 확정과 구분한다 — 추정을 확정처럼 보이게 하면 안 된다.
-  //
-  // 이미 지난 추정 구간은 뺀다. '다가오는 발표' 맨 앞에 지난 날짜가 놓이면
-  // 목록 전체를 못 믿게 된다. 그 지표는 카드 쪽에서 '발표 예정일 경과' 로 따로 알린다.
-  // JSON 이 만들어진 날이 아니라 **보는 날** 기준이어야 해서 여기서 거른다.
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const upcomingList = data.upcoming.filter(u => !(u.estimated && u.to < todayIso));
-  const upcoming = upcomingList.length ? `
-    <div class="upcoming">
-      <h2>다가오는 발표</h2>
-      <div class="upcoming-list">
-        ${upcomingList.map(u => {
-          const s = data.series.find(x => x.id === u.seriesId);
-          const md = iso => iso.slice(5).replace('-', '/');
-          const when = u.estimated ? `${md(u.from)}~${md(u.to)} 예상` : fmtDate(u.releaseDate);
-          const tip = u.estimated
-            ? ` data-tip="캘린더에 확정 일정이 없어 과거 ${u.sample}회의 발표 시점에서 추정했습니다 (그중 ${u.inBand}회가 이 구간)." tabindex="0"`
-            : '';
-          const fc = u.forecast === null || u.forecast === undefined
-            ? (u.estimated ? '이전 ' + fmt(s.unit, s.decimals, u.previous) : '예측 —')
-            : '예측 ' + fmt(s.unit, s.decimals, u.forecast);
-          return `<div class="upcoming-item${u.estimated ? ' est' : ''}"${tip}>
-            <div class="upcoming-date">${esc(when)}</div>
-            <div class="upcoming-name">${esc(u.name)}</div>
-            <div class="upcoming-fc">${esc(fc)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
+  const upcoming = upcomingSection(data);
 
-  const sections = data.categories.map(cat => {
+  const sections = data.categories.map((cat, i) => {
     const list = data.series.filter(s => s.category === cat);
     if (!list.length) return '';
-    return `<section class="cat">
-      <h2>${esc(cat)}</h2>
+    // 스파크라인 규칙은 카드마다 22번 적을 것이 아니라 화면에 한 번 적으면 된다.
+    const note = i === 0
+      ? '<span class="cat-note">카드의 작은 그래프는 모두 최근 2년입니다</span>' : '';
+    return `<section class="cat"${i === 0 ? ' id="cards"' : ''}>
+      <h2>${esc(cat)}${note}</h2>
       <div class="grid">${list.map(card).join('')}</div>
     </section>`;
   }).join('');

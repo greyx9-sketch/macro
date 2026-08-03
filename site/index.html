@@ -25,12 +25,15 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>📊</text></svg>">
 </head>
 <body>
+  <!-- 카드까지 가려면 최근 발표 17행을 Tab 으로 지나야 한다. 포커스될 때만 보인다. -->
+  <a class="skip" href="#cards">지표 카드로 건너뛰기</a>
   <div class="wrap">
     <div class="topbar">
       <h1>매크로 지표 대시보드</h1>
       <div class="topbar-actions">
-        <button class="ghost" id="compare-open" type="button" title="지표를 골라 한 화면에서 비교">비교</button>
-        <button class="ghost" id="theme-toggle" type="button" title="라이트/다크 전환">테마</button>
+        <!-- title 이 아니라 data-tip 이다. title 은 터치에서 열리지 않는다. -->
+        <button class="ghost" id="compare-open" type="button" data-tip="지표를 골라 한 화면에서 비교">비교</button>
+        <button class="ghost" id="theme-toggle" type="button" data-tip="라이트/다크 전환">테마</button>
       </div>
     </div>
     <p class="subtitle" id="subtitle">불러오는 중…</p>
@@ -47,7 +50,7 @@
         과거 데이터: 사용자 엑셀 백필
       </div>
       <div>
-        색 규칙은 원본 엑셀을 따릅니다 — 상승 빨강, 하락 파랑, 보합 검정.
+        색 규칙은 원본 엑셀을 따릅니다 — 상승 빨강, 하락 파랑, 보합 회색.
         방향은 ▲▼ 기호로도 표시되므로 색만으로 판단하지 않아도 됩니다.
       </div>
     </footer>
@@ -57,6 +60,9 @@
     <div class="detail-head">
       <div>
         <h2 class="detail-title" id="d-title"></h2>
+        <!-- 딥링크로 바로 들어온 사람에게 '이 지표의 지금 값' 이 헤드라인이어야 한다.
+             지금까지는 이름만 있어서 4.2% 를 발표 내역 표에서 찾아 읽어야 했다. -->
+        <div class="detail-now" id="d-now"></div>
         <p class="detail-note" id="d-note"></p>
       </div>
       <button class="ghost" id="d-close" type="button">닫기</button>

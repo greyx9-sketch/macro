@@ -104,6 +104,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* 카드에 닿으려면 '최근 발표' 17행을 Tab 으로 지나야 한다.
+   포커스될 때만 나타나므로 마우스 사용자에게는 아무것도 바뀌지 않는다. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--baseline);
+  border-radius: 0 0 8px 0;
+  padding: 8px 14px;
+  font-size: 13px;
+  text-decoration: none;
+}
+.skip:focus { left: 0; }
+
 .wrap {
   max-width: 1240px;
   margin: 0 auto;
@@ -170,28 +187,60 @@ button.ghost[aria-pressed="true"] {
   margin: 0 0 8px;
   letter-spacing: 0.02em;
 }
-.upcoming-list {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+/* 가로 스트립이었다. 12개 중 4개가 화면 밖으로 나갔고, 8/07 다음이 10/25 인
+   2.5개월 구멍이 다른 항목들과 똑같은 간격으로 놓였다. 세로로 흐르는
+   주차 묶음이라야 구멍이 구멍으로 보인다. */
+/* 열 폭은 목록 전체가 정하고 행은 물려받는다. 그룹마다 격자를 따로 만들면
+   '08/09~08/15 예상' 이 있는 그룹과 '08/03 월' 뿐인 그룹의 첫 열이 갈린다. */
+.up-list {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto 52px;
+  column-gap: 10px;
 }
-.upcoming-item {
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 11px;
-  min-width: 140px;
-  background: var(--page);
+.up-head {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 8px 0 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--gridline);
 }
-.upcoming-date { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.upcoming-name { font-size: 13px; font-weight: 550; margin-top: 1px; }
-.upcoming-fc   { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.up-head:first-child { margin-top: 0; }
+.up-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+/* subgrid 미지원 환경에서는 첫 열을 고정폭으로 — 어긋나되 겹치지는 않는다. */
+@supports not (grid-template-columns: subgrid) {
+  .up-row { grid-template-columns: 108px minmax(120px, 1fr) auto 52px; column-gap: 10px; }
+}
+.up-when { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.up-name { font-weight: 550; }
+.up-fc   { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.up-gap  { color: var(--text-muted); text-align: right; white-space: nowrap; }
 
 /* 이력에서 추정한 항목. 확정 일정과 같은 모양이면 안 된다 —
    점선은 '이 날짜는 약속이 아니다' 를 색을 쓰지 않고 말한다. */
-.upcoming-item.est { border-style: dashed; cursor: help; }
-.upcoming-item.est .upcoming-date { font-style: italic; }
+.up-row.est { cursor: help; }
+.up-row.est .up-when {
+  font-style: italic;
+  border-bottom: 1px dashed var(--text-muted);
+  width: max-content;
+}
+
+@media (max-width: 559px) {
+  .up-list { grid-template-columns: auto minmax(0, 1fr); }
+  .up-fc   { grid-column: 2; font-size: 11.5px; }
+  .up-gap  { display: none; }         /* 좁은 화면에서는 날짜만으로 충분하다 */
+  @supports not (grid-template-columns: subgrid) {
+    .up-row { grid-template-columns: 96px minmax(0, 1fr); }
+  }
+}
 
 /* ------------------------------------------------------------- timeline */
 .timeline {
@@ -203,6 +252,9 @@ button.ghost[aria-pressed="true"] {
   box-shadow: var(--shadow);
 }
 .timeline h2 { font-size: 13px; font-weight: 650; margin: 0 0 8px; }
+/* 색 규칙이 카드 22장 아래 푸터에만 있었다. 색을 처음 마주치는 곳에 적는다. */
+.legend { font-size: 11px; font-weight: 450; color: var(--text-muted); margin-left: 8px; }
+.cat-note { font-size: 11px; font-weight: 450; color: var(--text-muted); margin-left: 8px; }
 
 /* 열 폭은 '목록'이 정하고 '행'은 그대로 물려받는다.
    행마다 grid-template-columns 를 따로 선언하면 트랙이 행마다 계산되므로,
@@ -276,15 +328,22 @@ button.ghost[aria-pressed="true"] {
 }
 .tone-pos { border-color: rgba(12, 163, 12, 0.45); }
 .tone-neg { border-color: rgba(208, 59, 59, 0.45); }
+/* --border 는 라이트 테마에서 rgba(11,11,11,.10) 이라 배경 없는 칩이 거의
+   안 보였다. 테두리가 곧 칩의 윤곽이므로 한 단계 진한 값을 쓴다. */
 .chip.tone {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--baseline);
   color: var(--text-secondary);
   font-weight: 450;
 }
+/* .tone-pos/.tone-neg 는 특이도 (0,1,0) 이라 위 (0,2,0) 규칙에 눌려 있었다.
+   초록·빨강 테두리가 한 번도 화면에 나온 적이 없다. 특이도를 맞춰 되살린다. */
+.chip.tone-pos { border-color: rgba(12, 163, 12, 0.55); }
+.chip.tone-neg { border-color: rgba(208, 59, 59, 0.55); }
 
 /* ---------------------------------------------------------- 서프라이즈 막대 */
 .sbars { display: block; width: 100%; height: auto; aspect-ratio: 820 / 92; margin-top: 2px; }
+.sbar { cursor: help; }
 .sbar.up   { fill: var(--dir-up); }
 .sbar.down { fill: var(--dir-down); }
 .sbar.flat { fill: var(--dir-flat); }
@@ -317,7 +376,13 @@ section.cat > h2 {
   text-align: left;
   font: inherit;
   color: inherit;
-  display: block;
+  /* display:block 이면 안 된다. <button> 은 콘텐츠를 **세로 중앙**에 놓고,
+     그 규칙은 display:block 으로 끊기지 않는다. 카드마다 내용 높이가 달라
+     (맥락 줄 없음 / 칩 한 줄) 남는 높이가 위아래로 갈리면서, 같은 줄에 놓인
+     카드들의 제목이 25px 계단을 이뤘다. flex column 이라야 위에서부터 쌓인다. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
   transition: border-color .12s ease, transform .12s ease;
 }
@@ -365,7 +430,9 @@ section.cat > h2 {
 .card.pending { border-style: dashed; }
 .card.pending .card-foot { color: var(--text-muted); }
 
-.spark { display: block; width: 100%; height: 34px; }
+/* 남는 높이를 전부 그래프 **위**로 몰아 발밑 줄을 바닥에 붙인다.
+   이게 없으면 제목만 맞고 '다음 발표' 줄이 카드마다 다른 높이에 뜬다. */
+.spark { display: block; width: 100%; height: 34px; margin-top: auto; }
 .card-foot {
   font-size: 10.5px;
   color: var(--text-muted);
@@ -377,9 +444,12 @@ section.cat > h2 {
 
 /* '지금 이 값이 높은 건가' 에 대한 답. 값 바로 아래에 둔다 —
    차트를 보기 전에 읽혀야 의미가 있다. */
+/* 라이트 테마에서 --text-secondary 11px 은 너무 옅어 배경에 묻혔다.
+   본문 색으로 올리고 한 급 키운다 — 값 바로 아래에서 읽히라고 둔 줄이다. */
 .ctx {
-  font-size: 11px;
-  color: var(--text-secondary);
+  font-size: 11.5px;
+  color: var(--text-primary);
+  opacity: .72;
   margin: -2px 0 6px;
   font-variant-numeric: tabular-nums;
   cursor: help;
@@ -397,7 +467,9 @@ dialog.detail {
   background: var(--surface);
   color: var(--text-primary);
   padding: 0;
-  width: min(880px, calc(100vw - 32px));
+  /* 880px 이었다. 1573px 뷰포트에서 좌우 693px 이 빈 공간인데
+     차트는 좁고 표는 세 화면이었다. */
+  width: min(1120px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.22);
 }
@@ -416,7 +488,28 @@ dialog.detail::backdrop { background: rgba(0, 0, 0, 0.42); }
   border-radius: 14px 14px 0 0;
 }
 .detail-title { font-size: 16px; font-weight: 650; margin: 0; }
-.detail-note  { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; max-width: 60ch; }
+
+/* 헤더는 sticky 라 2400px 를 내려가도 지금 값이 계속 보인다. */
+.detail-now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+.detail-now .d-now-val {
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.detail-now .d-now-ref { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.detail-now .chips { margin-bottom: 0; min-height: 0; }
+
+.detail-note  { font-size: 12px; color: var(--text-secondary); margin: 5px 0 0; max-width: 60ch; }
+.detail-note:empty { display: none; }
+
+.table-foot { font-size: 11px; color: var(--text-muted); margin: 5px 0 0; }
 .detail-body  { padding: 16px 20px 20px; overflow-y: auto; max-height: calc(100vh - 180px); }
 
 .range-row { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -469,6 +562,11 @@ table.rel th {
   border-bottom: 1px solid var(--gridline);
   font-size: 11.5px;
   white-space: nowrap;
+  /* 60행을 내려가는 동안 어느 칸이 실제·예측·이전인지 잃지 않도록. */
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
 }
 table.rel td {
   padding: 5px 8px;
@@ -637,6 +735,10 @@ h3.sub {
 .sm-name { font-size: 12.5px; font-weight: 550; }
 .sm-last { font-size: 12.5px; color: var(--text-secondary); margin-left: auto; font-variant-numeric: tabular-nums; }
 .sm-chart { display: block; width: 100%; height: auto; aspect-ratio: 820 / 92; }
+/* 패널마다 축을 그리면 세로로 반복돼 시끄럽다. 맨 아래 하나면
+   '이 x 는 모든 패널에 같다' 가 그림 자체로 말해진다. */
+.sm-axis { display: block; width: 100%; height: auto; aspect-ratio: 820 / 18; margin-top: -6px; }
+.sm-note { font-size: 11px; color: var(--text-muted); margin: 2px 0 0; }
 
 @media (max-width: 559px) {
   .c-cat { min-width: 100%; }
