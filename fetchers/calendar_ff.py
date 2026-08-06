@@ -214,11 +214,23 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
     )
 
 
-def remap_from_stored(conn, *, dry_run: bool = False) -> FetchResult:
+def remap_from_stored(conn, *, dry_run: bool = False, overwrite: bool = False) -> FetchResult:
     """이미 저장된 calendar_events 를 다시 매핑한다.
 
     ff_title 을 잘못 적었거나 ForexFactory 가 이벤트명을 바꿨을 때,
     과거 데이터를 다시 받을 수 없으므로 보관해 둔 원본으로 복구하는 경로다.
+    아무 곳에서도 자동으로 부르지 않는다 — 사람이 판단해서 쓰는 복구 도구다.
+
+    ★ 기본값은 '빈 칸만 채우기' 다 ★
+        오랫동안 이 함수는 무해했다 — 공식 JSON 피드가 actual 을 주지 않고
+        calendar_events 가 200행 남짓이었기 때문이다. 지금은 다르다.
+        calendar_ff_html 이 실제값을 채우고 과거 주 백필로 15,000행이 쌓였다.
+        그 상태에서 한 번 돌려 보니 **169건의 예측·이전이 덮였다** —
+        엑셀에서 온 발표 당시 컨센서스가 지금 렌더링된 값으로 바뀐 것이고,
+        `prune_excel_actuals.py` 의 "예측·이전은 절대 건드리지 않는다" 위반이다.
+        게다가 실제값은 반올림된 헤드라인이라 FRED 정밀도가 깎인다(7.359 -> 7.36).
+
+        정말로 덮어써야 할 때(= 매핑이 틀렸던 것이 확인됐을 때)만 overwrite=True.
     """
     index = _title_index()
     rows = conn.execute(
@@ -235,15 +247,31 @@ def remap_from_stored(conn, *, dry_run: bool = False) -> FetchResult:
         if dt is None:
             continue
         ref_date = derive_ref_date(s, dt)
+        actual = to_series_unit(s.unit, parse_raw_number(r["actual_raw"]))
+        forecast = to_series_unit(s.unit, parse_raw_number(r["forecast_raw"]))
+        previous = to_series_unit(s.unit, parse_raw_number(r["previous_raw"]))
+
+        if not overwrite:
+            existing = conn.execute(
+                "SELECT actual, forecast, previous FROM releases"
+                " WHERE series_id = ? AND ref_date = ?",
+                (s.id, ref_date),
+            ).fetchone()
+            if existing is not None:
+                if existing["actual"] is not None:
+                    actual = None
+                if existing["forecast"] is not None:
+                    forecast = None
+                if existing["previous"] is not None:
+                    previous = None
+        if actual is None and forecast is None and previous is None:
+            continue
+
         if not dry_run:
             db_mod.upsert_release(
-                conn,
-                s.id,
-                ref_date,
+                conn, s.id, ref_date,
                 release_date=dt.isoformat(),
-                actual=to_series_unit(s.unit, parse_raw_number(r["actual_raw"])),
-                forecast=to_series_unit(s.unit, parse_raw_number(r["forecast_raw"])),
-                previous=to_series_unit(s.unit, parse_raw_number(r["previous_raw"])),
+                actual=actual, forecast=forecast, previous=previous,
                 source=SOURCE,
             )
         mapped += 1

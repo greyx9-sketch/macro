@@ -254,15 +254,18 @@ def store_week(
 
     for dt, cur, name, actual, forecast, previous, revision in iter_events(days):
         # 1단계: 원본 전량 보관. 매핑이 틀려도 나중에 되살릴 수 있어야 한다.
-        # revision 은 공식 피드에 없는 값이라 원본에만 붙여 둔다.
-        raw_prev = previous
-        if revision:
-            raw_prev = f"{previous or ''}→{revision}" if previous else revision
+        #
+        # `revision`(직전값 개정: 197K→198K)은 공식 피드에 없는 값이지만
+        # **저장하지 않는다.** 처음엔 previous_raw 에 '197K→198K' 로 합쳐 넣었는데,
+        # 그 문자열은 parse_raw_number 가 해석하지 못해 None 이 된다 —
+        # remap_from_stored() 가 돌면 previous 가 조용히 사라진다.
+        # 한 칸에 두 값을 넣는 것보다 안 넣는 편이 낫다. 개정 이력을 다루게 되면
+        # calendar_events 에 revision_raw 열을 따로 만든다.
         if not dry_run:
             db_mod.upsert_calendar_event(
                 conn, title=name, country=cur, event_time=dt.isoformat(),
                 impact=None, actual_raw=actual,
-                forecast_raw=forecast, previous_raw=raw_prev,
+                forecast_raw=forecast, previous_raw=previous,
             )
         stored += 1
 
