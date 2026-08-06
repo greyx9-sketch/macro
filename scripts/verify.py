@@ -248,6 +248,48 @@ def verify_bls(conn, start_year: int, end_year: int, show: int) -> int:
     return 3 if unreachable else 0
 
 
+def verify_stale(conn) -> int:
+    """갱신이 멈춘 계열을 찾는다.
+
+    다른 검사들은 전부 '들어온 값이 맞는가' 를 본다. ISM 2종은 값이 틀린 게 아니라
+    **아예 안 들어왔고**, 그래서 두 달 동안 아무 검사에도 안 걸렸다. 이건 그 눈이다.
+    """
+    from core.validate import check_staleness, periods_behind
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    print("계열별 갱신 상태 — '밀림' 은 발표 지연을 감안하고 남은 것입니다.\n")
+    print(f"{'지표':22} {'주기':9} {'최신 기준시점':13} {'밀림':>7}  판정")
+    print("-" * 70)
+
+    bad = 0
+    for s in ALL_SERIES:
+        row = conn.execute(
+            "SELECT MAX(ref_date) AS m FROM observations WHERE series_id = ?", (s.id,)
+        ).fetchone()
+        latest = row["m"] if row else None
+        behind = periods_behind(s, latest, today)
+        issue = check_staleness(s, latest, today)
+        if issue:
+            bad += 1
+        shown = f"{behind:.1f}" if behind is not None else "-"
+        print(f"{s.name_ko:22} {s.frequency:9} {str(latest or '—'):13} {shown:>7}  "
+              f"{'⚠ 멈춤' if issue else '정상'}")
+
+    print("\n" + "=" * 70)
+    if bad == 0:
+        print("모든 계열이 정상적으로 갱신되고 있습니다.")
+        return 0
+    print(f"{bad}개 계열의 갱신이 멈췄습니다. 자세한 내용:")
+    for s in ALL_SERIES:
+        row = conn.execute(
+            "SELECT MAX(ref_date) AS m FROM observations WHERE series_id = ?", (s.id,)
+        ).fetchone()
+        issue = check_staleness(s, row["m"] if row else None, today)
+        if issue:
+            print(f"   · {issue}")
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="엑셀 ↔ FRED 대조 검증")
     ap.add_argument("--series", help="이 지표만 검증")
@@ -258,7 +300,16 @@ def main() -> int:
                     help="BLS 공개 API 원 수준값과 대조한다 (FRED 를 거치지 않는 독립 경로)")
     ap.add_argument("--bls-years", type=int, default=5,
                     help="--bls 가 대조할 기간(년). BLS v1 은 한 번에 최대 10년이다")
+    ap.add_argument("--stale", action="store_true",
+                    help="갱신이 멈춘 계열을 찾는다 (값의 정오가 아니라 '들어오고 있는가')")
     args = ap.parse_args()
+
+    if args.stale:
+        conn = db_mod.connect()
+        try:
+            return verify_stale(conn)
+        finally:
+            conn.close()
 
     if args.bls:
         conn = db_mod.connect()

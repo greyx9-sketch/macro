@@ -50,7 +50,11 @@ def fetch_rows(start: str = "20000101", end: str = "20991231") -> list[dict]:
     while True:
         end_row = start_row + CHUNK - 1
         url = f"{BASE}/{key}/json/kr/{start_row}/{end_row}/{stat}/{cycle}/{start}/{end}/{item}"
-        payload = json.loads(http_get(url))
+        # 기본값(30초·3회·2초 백오프)으로는 실제로 타임아웃이 났다.
+        # ForexFactory 만큼 길게 잡을 필요는 없다 — 그쪽은 놓치면 영구 손실이지만
+        # ECOS 는 과거 데이터를 언제든 다시 준다. 다만 한국 정부 API 는 느린 편이라
+        # 한 번의 일시적 지연으로 하루치를 날리지 않을 만큼은 기다린다.
+        payload = json.loads(http_get(url, retries=5, backoff=10.0, timeout=60))
 
         if "RESULT" in payload:
             code = payload["RESULT"].get("CODE", "")

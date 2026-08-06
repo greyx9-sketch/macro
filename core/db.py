@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from . import series as series_mod
+from .secrets import safe_message
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "macro.sqlite"
@@ -274,9 +275,12 @@ def log_finish(
     rows: int = 0,
     message: str = "",
 ) -> None:
+    # ★ 여기가 마지막 관문이다 ★
+    # 이 메시지는 fetch_log.csv 로 커밋되고 dashboard.json 을 거쳐 공개 사이트까지
+    # 간다. 실제로 ECOS 인증키가 이 경로로 새어 나갔다. 저장 직전에 반드시 훑는다.
     conn.execute(
         "UPDATE fetch_log SET finished_at = ?, status = ?, rows = ?, message = ? WHERE id = ?",
-        (utcnow(), status, rows, message[:2000], log_id),
+        (utcnow(), status, rows, safe_message(message)[:2000], log_id),
     )
     conn.commit()
 

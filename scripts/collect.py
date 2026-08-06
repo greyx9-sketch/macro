@@ -26,19 +26,45 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core import db as db_mod  # noqa: E402
 from core import store  # noqa: E402
-from fetchers import calendar_ff, cds, ecos, fred  # noqa: E402
+from fetchers import calendar_ff, calendar_ff_html, cds, ecos, fred  # noqa: E402
 from fetchers.base import FetchResult  # noqa: E402
 
 # 순서가 의미를 갖는다.
-#   1) 캘린더가 가장 먼저 — 이번 주만 제공하는 유일한 소스라 놓치면 복구 불가.
-#   2) FRED/ECOS 는 언제든 다시 받을 수 있다.
-#   3) CDS 는 가장 취약하므로 마지막.
+#   1) 캘린더 공식 피드가 가장 먼저 — 예측·이전의 주소스다.
+#   2) 캘린더 HTML 은 그 바로 뒤 — 공식 피드가 주지 않는 **실제값**만 메운다.
+#      ISM 2종은 FRED 에 없어 이 경로가 유일한 실제값 소스다.
+#   3) FRED/ECOS 는 언제든 다시 받을 수 있다.
+#   4) CDS 는 가장 취약하므로 마지막.
 SOURCES = [
     ("forexfactory", calendar_ff.collect),
+    ("forexfactory_html", calendar_ff_html.collect),
     ("fred", fred.collect),
     ("ecos", ecos.collect),
     ("cds", cds.collect),
 ]
+
+
+def staleness_check(conn) -> list[str]:
+    """오래 갱신되지 않은 계열을 찾는다.
+
+    ISM 2종이 두 달 동안 조용히 멈춰 있었는데 어떤 검사에도 안 걸렸다.
+    `cross_check` 는 '들어온 값이 서로 맞는가' 만 보고, 안 들어온 것은 보지 않는다.
+    """
+    from datetime import datetime, timezone
+
+    from core.series import ALL_SERIES
+    from core.validate import check_staleness
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    out: list[str] = []
+    for s in ALL_SERIES:
+        row = conn.execute(
+            "SELECT MAX(ref_date) AS m FROM observations WHERE series_id = ?", (s.id,)
+        ).fetchone()
+        issue = check_staleness(s, row["m"] if row else None, today)
+        if issue:
+            out.append(str(issue))
+    return out
 
 
 def cross_check(conn) -> list[str]:
@@ -116,6 +142,14 @@ def main() -> int:
                 print(f"   · {line}")
             if len(cross) > 10:
                 print(f"   · … 외 {len(cross) - 10}건")
+
+        # 값이 틀린 게 아니라 **안 들어오는** 경우를 본다.
+        # 수집은 성공했으므로 종료 코드에는 반영하지 않는다 — 눈에 띄게만 한다.
+        stale = staleness_check(conn)
+        if stale:
+            print(f"\n▶ 갱신이 멈춘 계열 {len(stale)}건")
+            for line in stale:
+                print(f"   · {line}")
 
         # 수동 오버라이드는 항상 마지막에 — 자동 수집값을 덮어써야 하므로.
         n = db_mod.apply_overrides(conn)

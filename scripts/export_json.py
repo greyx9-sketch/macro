@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core import db as db_mod  # noqa: E402
 from core.series import ALL_SERIES, CATEGORY_ORDER, SCHEDULE_URLS, Series  # noqa: E402
 from core.transform import parse_iso_date, shift_months  # noqa: E402
+from core.validate import check_staleness, periods_behind  # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "site" / "data"
 OUT_FILE = OUT_DIR / "dashboard.json"
@@ -91,6 +92,27 @@ def _series_meta(s: Series) -> dict:
         # 발표 시점은 추정이므로 확정 일정을 직접 볼 길을 함께 준다.
         # 일간 시장 계열(10Y-2Y·CDS)에는 '발표 일정' 이라는 것이 없어 비어 있다.
         "scheduleUrl": SCHEDULE_URLS.get(s.id),
+    }
+
+
+def staleness_of(s: Series, points: list[dict]) -> Optional[dict]:
+    """갱신이 얼마나 밀렸는가. 경보 임계 미만이어도 숫자는 내보낸다.
+
+    화면은 '1개월째 갱신 없음' 처럼 사실만 적고, 경보(`alarm`)일 때만 강조한다.
+    임계 미만을 감추면 ISM 처럼 조용히 죽는 경우를 또 놓친다.
+    """
+    if not points:
+        return None
+    latest = points[-1]["d"]
+    today = datetime.now(timezone.utc).date().isoformat()
+    behind = periods_behind(s, latest, today)
+    if behind is None:
+        return None
+    return {
+        "latestRef": latest,
+        "behind": round(behind, 1),
+        "unit": {"monthly": "개월", "quarterly": "분기", "weekly": "주", "daily": "일"}[s.frequency],
+        "alarm": check_staleness(s, latest, today) is not None,
     }
 
 
@@ -417,6 +439,9 @@ def build(conn) -> dict:
                 # 나머지 빈 자리를 이력에서 뽑은 '구간' 으로 메운다. 확정값이 있으면
                 # 화면이 그쪽을 쓴다 — 추정이 확정을 덮지 않는다.
                 "estimatedNext": estimate_next_release(s, all_rows),
+                # 값이 틀린 게 아니라 **안 들어오는** 상태. ISM 2종이 두 달 동안
+                # 조용히 멈춰 있었는데 화면 어디에도 표시가 없었다.
+                "staleness": staleness_of(s, points),
                 "context": value_context(s, points),
                 # 예측을 계속 상회/하회하는 편향은 값 하나로는 안 보이고 이력으로만 보인다.
                 # (NFP 최근 6회: -57 / +44 / +83 / +149 / -214 / +94)

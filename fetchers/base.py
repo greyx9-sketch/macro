@@ -15,8 +15,60 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from core.secrets import MASK, scrub_secrets
+
 USER_AGENT = "macro-dashboard/1.0 (+personal research tool)"
 DEFAULT_TIMEOUT = 30
+
+# ---------------------------------------------------------------------------
+# 오류 메시지에 실릴 URL 다듬기
+#
+# 실패 메시지는 fetch_log.csv 로 커밋되고 dashboard.json 을 거쳐 **공개 사이트**에
+# 그대로 실린다. 실제로 ECOS 인증키가 이 경로로 새어 나갔다.
+#
+#   https://ecos.bok.or.kr/api/StatisticSearch/{KEY}/json/kr/1/10000/...
+#
+# 키가 쿼리스트링에만 온다고 가정하면 안 된다 — ECOS 는 **경로 세그먼트**에 넣는다.
+# ---------------------------------------------------------------------------
+
+# 쿼리 파라미터 이름 (대소문자 무시)
+_SECRET_PARAMS = {"api_key", "apikey", "key", "token", "access_key", "auth"}
+
+# 호스트별 경로 규칙: 몇 번째 세그먼트가 키인가 (선행 '/' 제외한 0-based).
+#   /api/StatisticSearch/{KEY}/json/...
+#    0   1                 2
+# 넓게 일반화하지 않는다. 아무 경로나 가리면 오류 메시지가 읽을 수 없게 되고
+# 디버깅용으로 남기는 의미가 사라진다.
+_SECRET_PATH_SEGMENTS = {"ecos.bok.or.kr": (2,)}
+
+
+def _safe_url(url: str) -> str:
+    """오류 메시지에 넣어도 되는 형태로 URL 을 다듬는다."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return MASK
+
+    query = parts.query
+    if query:
+        pairs = urllib.parse.parse_qsl(query, keep_blank_values=True)
+        query = urllib.parse.urlencode(
+            [(k, MASK if k.lower() in _SECRET_PARAMS else v) for k, v in pairs],
+            safe="*",           # MASK 가 %2A%2A%2A 로 인코딩되면 읽기 어렵다
+        )
+
+    path = parts.path
+    idxs = _SECRET_PATH_SEGMENTS.get(parts.hostname or "")
+    if idxs:
+        segs = path.split("/")          # 선행 '/' 때문에 segs[0] 은 빈 문자열
+        for i in idxs:
+            if i + 1 < len(segs) and segs[i + 1]:
+                segs[i + 1] = MASK
+        path = "/".join(segs)
+
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, path, query, parts.fragment)
+    )
 
 
 @dataclass
@@ -68,14 +120,14 @@ def http_get(
             if exc.code == 429 or exc.code >= 500:
                 last_exc = exc
             else:
-                raise FetchError(f"HTTP {exc.code} {exc.reason} :: {url}") from exc
+                raise FetchError(f"HTTP {exc.code} {exc.reason} :: {_safe_url(url)}") from exc
         except Exception as exc:  # 타임아웃, DNS, TLS 등
             last_exc = exc
 
         if attempt < retries - 1:
             time.sleep(backoff * (attempt + 1))
 
-    raise FetchError(f"{retries}회 재시도 실패 :: {url} :: {last_exc}")
+    raise FetchError(f"{retries}회 재시도 실패 :: {_safe_url(url)} :: {scrub_secrets(str(last_exc))}")
 
 
 def guarded(source: str) -> Callable:

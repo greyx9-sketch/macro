@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
 
 from .series import Series, sanity_range
@@ -134,6 +135,75 @@ def check_release_vs_observation(
             f"최악: {worst[0]} 발표={worst[1]:.4g} 관측={worst[2]:.4g}",
         )
     ]
+
+
+# ---------------------------------------------------------------------------
+# 정체 감지
+#
+# ISM 2종이 두 달 동안 조용히 죽어 있었다. 값이 **틀린** 게 아니라 아예 **안 들어왔고**,
+# 위의 검사들은 전부 '들어온 값이 말이 되는가' 만 본다. 안 들어온 것을 보는 눈이 없었다.
+#
+# 발표 예정일 추정(export_json.estimate_next_release)에 기대면 안 된다.
+# 그건 과거 발표일 표본이 있어야 하는데, ISM 은 발표일이 전부 엑셀에서 온 월 단위라
+# 표본이 0이다 — **가장 망가진 계열이 정확히 그 감지기의 사각지대**였다.
+# 그래서 주기만 보고 판정한다. 주기는 항상 알고 있다.
+# ---------------------------------------------------------------------------
+
+# 날짜 차이를 그대로 쓰면 안 된다. JOLTS 는 **설계상** 2개월 지연 발표라
+# 정상일 때도 최신 기준시점이 67일 전이고, 그건 갱신이 멈춘 미시간대와 같은 숫자다.
+# 그래서 지표마다 다른 `ref_lag_months` 를 빼고 **몇 주기 밀렸는지**로 센다.
+PERIOD_DAYS = {"monthly": 30.44, "quarterly": 91.3, "weekly": 7.0, "daily": 1.0}
+
+# 몇 주기부터 경보인가.
+#
+# 1주기는 정상 구간이다 — 월간 지표는 그 달 발표가 나기 전까지 늘 1주기 뒤에 있다.
+# 2주기는 '한 번 통째로 놓쳤다' 라 변명의 여지가 없다.
+# 매번 울리는 경보는 아무도 안 보게 되므로 확실할 때만 운다.
+STALE_PERIODS = 2.0
+
+# 일간 계열은 주기 개념이 다르다 — 연휴를 감안해도 열흘은 과하다.
+STALE_DAILY_DAYS = 10
+
+
+def periods_behind(series: Series, latest_ref: Optional[str], today: str) -> Optional[float]:
+    """예상 기준시점 대비 몇 주기나 밀려 있는가. 모르면 None."""
+    span = PERIOD_DAYS.get(series.frequency)
+    if span is None or not latest_ref:       # event(정책금리)는 주기가 없다
+        return None
+
+    days = (date.fromisoformat(today) - date.fromisoformat(latest_ref[:10])).days
+    if series.frequency == "daily":
+        return days / span
+    # 발표 지연은 정상이다. 지표별 지연을 빼고 남은 것만 '밀린 것' 으로 센다.
+    days -= series.ref_lag_months * 30.44
+    return max(0.0, days / span)
+
+
+def check_staleness(
+    series: Series, latest_ref: Optional[str], today: str
+) -> Optional[Issue]:
+    """관측치 갱신이 멈췄는가."""
+    if series.frequency not in PERIOD_DAYS:
+        return None
+    if not latest_ref:
+        return Issue(series.id, "-", "stale", "관측치가 하나도 없습니다")
+
+    if series.frequency == "daily":
+        days = (date.fromisoformat(today) - date.fromisoformat(latest_ref[:10])).days
+        if days <= STALE_DAILY_DAYS:
+            return None
+        return Issue(series.id, latest_ref, "stale",
+                     f"최신 관측이 {days}일 전입니다 (일간 한계 {STALE_DAILY_DAYS}일)")
+
+    behind = periods_behind(series, latest_ref, today)
+    if behind is None or behind < STALE_PERIODS:
+        return None
+    unit = {"monthly": "개월", "quarterly": "분기", "weekly": "주"}[series.frequency]
+    return Issue(
+        series.id, latest_ref, "stale",
+        f"발표 지연({series.ref_lag_months}개월)을 감안해도 {behind:.1f}{unit}치가 "
+        f"밀려 있습니다 — 수집이 끊겼는지 확인이 필요합니다",
+    )
 
 
 def validate_series_points(

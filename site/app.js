@@ -548,6 +548,18 @@ function useEstimate(s) {
 function nextReleaseLabel(s) {
   const today = new Date().toISOString().slice(0, 10);
 
+  // 갱신이 멈춘 것이 가장 중요한 사실이다 — 다음 발표일보다 먼저 말한다.
+  //
+  // **경보일 때만 적는다.** 월간 지표는 그 달 발표 전까지 늘 1주기쯤 뒤에 있어서,
+  // 밀린 정도를 늘 적으면 20장이 '1.2개월' 을 달고 있게 되고 진짜 신호가 묻힌다.
+  const st = s.staleness;
+  if (st && st.alarm) {
+    return {
+      html: `<span data-tip="최신 기준시점이 ${esc(st.latestRef)} 입니다. 발표 지연을 감안하고도 ${st.behind}${st.unit}치가 밀렸습니다 — 원본이 늦거나 수집이 끊겼을 수 있습니다.">${st.behind}${esc(st.unit)}째 갱신 없음</span>`,
+      overdue: true,
+    };
+  }
+
   if (s.upcoming && s.upcoming.releaseDate && !useEstimate(s)) {
     const rd = s.upcoming.releaseDate;
     // '2026-08-07' 보다 '3일 뒤' 가 먼저 읽힌다. 확정 일정에만 붙인다 —
@@ -979,6 +991,12 @@ function contextLine(s) {
 
 /** 다음 발표 안내 — 카드 쪽 팁은 마우스 전용이므로 여기서는 본문으로 적는다. */
 function nextLine(s) {
+  const st = s.staleness;
+  if (st && st.alarm) {
+    return `<p class="next-line warn">최신 기준시점이 <strong>${esc(st.latestRef)}</strong> 입니다 —
+      발표 지연을 감안하고도 <strong>${st.behind}${esc(st.unit)}치</strong>가 밀려 있습니다.
+      원본이 늦거나 수집 경로가 끊겼다는 뜻이므로, 지금 보이는 값은 최신이 아닙니다.</p>`;
+  }
   if (s.upcoming && s.upcoming.releaseDate && !useEstimate(s)) {
     return `<p class="next-line">다음 발표 <strong>${esc(fmtDate(s.upcoming.releaseDate))}</strong>
       — 캘린더 확정 일정입니다.</p>`;
