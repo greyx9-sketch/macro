@@ -1,2 +1,4 @@
 series_id,ref_date,observed_at,old_value,new_value,source
+initial_claims,2026-07-18,2026-08-07T06:03:53+00:00,188.0,189.0,fred
+initial_claims,2026-07-25,2026-08-07T06:03:53+00:00,197.0,198.0,fred
 jolts,2026-05-01,2026-08-04T16:29:29+00:00,7.594,7.537,fred
