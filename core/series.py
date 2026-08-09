@@ -70,11 +70,19 @@ class Series:
     ff_title: Optional[str] = None
     ff_country: str = "USD"
 
-    # 같은 이벤트의 다른 표기. ForexFactory 가 이벤트명을 바꾸면
-    # (예: 'ISM Non-Manufacturing PMI' -> 'ISM Services PMI') 매칭이 조용히 끊기는데,
-    # 피드는 지난 주를 다시 주지 않으므로 발견이 늦을수록 손실이 크다.
-    # 알려진 옛 이름을 미리 등록해 두면 어느 쪽으로 와도 잡힌다.
+    # 알려진 **옛** 이름. ForexFactory 가 이벤트명을 바꾸면
+    # (예: 'ISM Non-Manufacturing PMI' -> 'ISM Services PMI') 매칭이 조용히 끊긴다.
+    # 공식 JSON 피드는 이번 주치만 주므로 발견이 늦을수록 그 사이 컨센서스를 놓친다
+    # (캘린더 HTML 의 `?week=` 로 뒤늦게 복구할 수는 있지만 사람이 돌려야 하는 경로다).
+    # 여기 등록해 두면 어느 쪽 이름으로 와도 잡히고, **옛 이름으로 잡히면 경고한다** —
+    # 개명이 실제로 일어났다는 신호이기 때문이다.
     ff_aliases: tuple[str, ...] = field(default_factory=tuple)
+
+    # 같은 지표를 가리키지만 **개명이 아니라 정기적으로 공존하는** 다른 표기.
+    # 예: 미시간대는 매월 Prelim(중순)·Revised(말)을 둘 다 낸다.
+    # 매칭은 ff_aliases 와 똑같이 하되 **경고하지 않는다** — 정상이라서 매번 울리면
+    # 아무도 안 보게 되고, 그러면 진짜 개명 신호까지 같이 묻힌다.
+    ff_variants: tuple[str, ...] = field(default_factory=tuple)
 
     # 발표월과 기준월의 간격(개월). 캘린더 이벤트의 발표일에서 기준월을 역산할 때 쓴다.
     # **frequency == 'monthly' 인 지표에만 적용된다.** 주간/일간/이벤트성 지표는
@@ -397,8 +405,10 @@ _SURVEY = [
         require_seasonal_adjustment=None,
         # 같은 달을 두 번 발표한다: 중순 예비치, 말일 확정치.
         # 둘 다 같은 기준월이므로 확정치가 예비치를 덮어쓴다.
+        # 개명이 아니라 정기 공존이므로 ff_aliases 가 아니라 ff_variants 다 —
+        # 여기 두면 예비치 주마다 '개명 의심' 경고가 영구히 울린다.
         ff_title="Revised UoM Consumer Sentiment",
-        ff_aliases=("Prelim UoM Consumer Sentiment", "UoM Consumer Sentiment"),
+        ff_variants=("Prelim UoM Consumer Sentiment", "UoM Consumer Sentiment"),
         ref_lag_months=0,   # 당월 조사를 당월에 발표한다
         higher_is_better=True,
         note="가계 심리. 예비치(중순)와 확정치(말일)로 같은 달을 두 번 발표한다.",

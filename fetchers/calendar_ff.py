@@ -7,9 +7,11 @@
     Federal Funds Rate  2026-07-29  forecast=3.75%               (엑셀 C7/D7 과 일치)
 
 ★ 결정적 제약 ★
-    thisweek 만 존재한다. lastweek / nextweek 는 404 다.
-    즉 **놓친 주는 영원히 복구할 수 없다.**
-    그래서 두 가지를 지킨다.
+    이 공식 피드에는 thisweek 만 존재한다. lastweek / nextweek 는 404 다.
+    한때 이걸 두고 "놓친 주는 영원히 복구할 수 없다"고 전제했는데 **그건 사실이 아니다** —
+    캘린더 HTML 의 `?week=mmmD.yyyy` 로 과거 주를 받을 수 있다(`calendar_ff_html`, mar1.2020 까지 확인).
+    다만 그 복구는 `scripts/backfill_ff_weeks.py` 를 **사람이 판단해서 돌리는** 경로다.
+    자동으로 메워지지 않으므로 놓치는 비용이 0은 아니다. 그래서 두 가지를 계속 지킨다.
       1) 매핑 성공 여부와 무관하게 원본 이벤트를 calendar_events 에 전량 먼저 저장한다.
          나중에 매핑이 틀렸다고 판명나도 원본이 남아 있으면 고칠 수 있다.
       2) 매일 수집한다. 주 5회 중복 캡처로 하루이틀 장애를 흡수한다.
@@ -75,11 +77,13 @@ def fetch_feed() -> list[dict]:
     # ★ 이 소스만 재시도를 길게 잡는다 ★
     #   ForexFactory 는 429(Too Many Requests)를 돌려주는데, 기본 재시도(2초·4초)로는
     #   레이트 리밋이 풀리기 전에 포기한다. 다른 소스는 실패해도 다음 실행에서
-    #   똑같이 다시 받으면 그만이지만, **이 피드는 이번 주치만 제공하므로
-    #   놓친 주의 컨센서스는 영원히 복구할 수 없다.** 몇 분 더 기다릴 가치가 있다.
+    #   똑같이 다시 받으면 그만이지만, **이 피드는 이번 주치만 제공한다.**
+    #   놓친 주가 영구 손실은 아니다 — `?week=` 백필로 되찾을 수 있다(모듈 docstring 참고).
+    #   하지만 그건 사람이 알아채고 스크립트를 돌려야 하는 경로라, 자동으로 받아 두는 것보다
+    #   훨씬 비싸다. 그래서 예산은 그대로 길게 유지한다.
     #   실측한 쿨다운은 약 5분이었다. 20/40/60/80초(합 3.3분)로는 모자라
     #   30/60/90/120/150초(합 7.5분)로 잡는다. 하루 두 번 도는 작업에서
-    #   최악 7.5분을 더 기다리는 비용은, 그 주 컨센서스를 영구히 잃는 것에 비하면 싸다.
+    #   최악 7.5분을 더 기다리는 비용은, 나중에 사람 손을 빌리는 것에 비하면 싸다.
     raw = http_get(FEED_URL, retries=6, backoff=30.0)
     data = json.loads(raw)
     if not isinstance(data, list):
@@ -96,12 +100,18 @@ def _parse_event_time(value: str) -> Optional[datetime]:
 
 
 def _title_index() -> dict[tuple[str, str], Series]:
-    """(국가, 이벤트명) -> 지표. 정식 이름과 알려진 옛 이름을 모두 색인한다."""
+    """(국가, 이벤트명) -> 지표. 정식 이름·옛 이름·정기 변형을 모두 색인한다.
+
+    ★ 변형(ff_variants)을 빠뜨리면 안 된다 ★
+        calendar_ff_html 도 이 색인을 그대로 쓴다. 여기서 빠지면 HTML 경로에서
+        미시간대 예비치 매칭이 조용히 끊긴다. 경고 여부는 collect() 가 가르지,
+        색인이 가르지 않는다.
+    """
     index: dict[tuple[str, str], Series] = {}
     for s in series_mod.ff_mapped_series():
         if not s.ff_title:
             continue
-        for title in (s.ff_title, *s.ff_aliases):
+        for title in (s.ff_title, *s.ff_aliases, *s.ff_variants):
             index[(s.ff_country, title)] = s
     return index
 
@@ -158,8 +168,10 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
 
         # 별칭으로 잡혔을 수도 있으므로 제목이 아니라 지표 id 로 기록한다.
         matched_ids.add(s.id)
-        if title != s.ff_title:
-            issues.append(f"'{s.name_ko}' 이 별칭 '{title}' 로 잡혔습니다 — "
+        # 옛 이름으로 잡힌 것만 알린다. 정기 변형(ff_variants)은 정상이라 알리지 않는다 —
+        # 미시간대 예비치처럼 매월 오는 것에 경고를 달면 매번 울리고, 매번 울리면 안 본다.
+        if title in s.ff_aliases:
+            issues.append(f"'{s.name_ko}' 이 옛 이름 '{title}' 로 잡혔습니다 — "
                           f"ForexFactory 가 이벤트명을 바꿨을 수 있습니다")
         ref_date = derive_ref_date(s, dt)
 
@@ -200,9 +212,14 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
     )
     if missing:
         issues.append("이번 주 피드에 없던 지표(발표주가 아니면 정상): " + ", ".join(missing))
-        # ff_title 오타는 '조용히 영원히 예측이 안 잡히는' 형태로 나타나 발견이 어렵다.
-        # 비슷한 제목이 피드에 있으면 오타를 의심해야 하므로 눈에 띄게 알린다.
-        for warn in suggest_mappings(conn, missing):
+        # ff_title 오타는 '조용히 예측이 안 잡히는' 형태로 나타나 발견이 어렵다.
+        # 비슷한 제목이 **이번 주 피드에** 있으면 오타를 의심해야 하므로 눈에 띄게 알린다.
+        feed_titles = sorted({
+            t for ev in events
+            if (t := (ev.get("title") or "").strip())
+            and (ev.get("country") or "").strip() in ("USD", "KRW")
+        })
+        for warn in suggest_mappings(feed_titles, missing):
             issues.append(warn)
 
     return FetchResult(
@@ -218,7 +235,8 @@ def remap_from_stored(conn, *, dry_run: bool = False, overwrite: bool = False) -
     """이미 저장된 calendar_events 를 다시 매핑한다.
 
     ff_title 을 잘못 적었거나 ForexFactory 가 이벤트명을 바꿨을 때,
-    과거 데이터를 다시 받을 수 없으므로 보관해 둔 원본으로 복구하는 경로다.
+    이미 보관해 둔 원본으로 다시 매핑하는 경로다. (원본이 없는 주까지 되찾으려면
+    `scripts/backfill_ff_weeks.py` 로 `?week=` 를 받아 온 뒤 이걸 돌린다.)
     아무 곳에서도 자동으로 부르지 않는다 — 사람이 판단해서 쓰는 복구 도구다.
 
     ★ 기본값은 '빈 칸만 채우기' 다 ★
@@ -282,19 +300,28 @@ def remap_from_stored(conn, *, dry_run: bool = False, overwrite: bool = False) -
                        message=f"보관된 원본에서 {mapped}건 재매핑")
 
 
-def suggest_mappings(conn, missing_titles: list[str], cutoff: float = 0.75) -> list[str]:
-    """매칭 실패한 ff_title 에 대해 피드의 유사 제목을 제안한다.
+def suggest_mappings(feed_titles: list[str], missing_titles: list[str],
+                     cutoff: float = 0.75) -> list[str]:
+    """매칭 실패한 ff_title 에 대해 **이번 주 피드의** 유사 제목을 제안한다.
 
     ForexFactory 가 이벤트명을 바꾸면(과거에 'ISM Non-Manufacturing PMI' ->
-    'ISM Services PMI' 처럼) 매칭이 조용히 끊기고, 피드는 지난 주를 다시 주지 않으므로
-    발견이 늦을수록 손실이 크다. 유사 제목을 들이대 즉시 알아채게 한다.
+    'ISM Services PMI' 처럼) 매칭이 조용히 끊기고, 공식 피드는 이번 주치만 주므로
+    발견이 늦을수록 그 사이 컨센서스를 놓친다. 유사 제목을 들이대 즉시 알아채게 한다.
+
+    ★ 후보는 반드시 '이번 주 피드'여야 한다 ★
+        한때 `calendar_events` 전체를 후보로 썼다. 그 테이블이 200행 남짓일 때는 무해했지만
+        과거 주 백필로 15,000행(USD/KRW 제목 127개)이 되자 매 실행 오탐이 터졌다 —
+        'ISM Manufacturing PMI' 에 가격지불 하위지수인 'ISM Manufacturing Prices' 를,
+        'Non-Farm Employment Change' 에 아예 다른 지표인 'ADP Non-Farm Employment Change' 를
+        들이댔다. 셋 다 이력에 늘 있는 별개 이벤트라 영구히 울린다.
+
+        개명은 정의상 **같은 주 안에서** '정식 이름이 사라지고 비슷한 새 이름이 나타나는' 모습이다.
+        그러니 후보를 이번 주로 좁히면 탐지력은 그대로면서 오탐만 사라진다:
+        ISM 발표가 없는 주에는 'ISM Manufacturing Prices' 도 피드에 없다.
     """
     import difflib
 
-    rows = conn.execute(
-        "SELECT DISTINCT country, title FROM calendar_events WHERE country IN ('USD','KRW')"
-    ).fetchall()
-    pool = [r["title"] for r in rows]
+    pool = list(feed_titles)
     if not pool:
         return []
 
