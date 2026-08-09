@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 작업용 SQLite 는 커밋하지 않는다. data/*.csv 에서 언제든 재생성되는 파생물이고,
+# 바이너리라 git 이 델타 압축을 못해 커밋마다 전체 복사본이 쌓인다.
+# 영속 형식은 CSV 다 — core/store.py 참조.
+#
+# ★ 경로는 이 파일이 있는 폴더 기준이다 ★
+#   슬래시가 들어간 패턴은 이 .gitignore 가 있는 디렉터리에 고정된다.
+#   이 파일이 시황/ 안에 있으므로 'data/…' 는 '시황/data/…' 를 가리킨다.
+#   이 파일을 다른 깊이로 옮기면 아래 경로도 같이 고쳐야 한다 —
+#   안 고치면 **에러 없이** 바이너리 SQLite 가 커밋되기 시작한다.
+data/macro.sqlite
+data/macro.sqlite-wal
+data/macro.sqlite-shm
+
+# 구버전(archive/macro-calendar)의 로컬 시크릿. 실제 텔레그램 봇 토큰과 API 키가 들어 있다.
+# 보관본에는 일부러 복사하지 않았지만, 나중에 누가 원본에서 끌어와도 커밋되지 않게 막아 둔다.
+**/.dev.vars
+
+.DS_Store
+Thumbs.db

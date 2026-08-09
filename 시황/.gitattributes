@@ -1,19 +1,20 @@
-# 줄바꿈은 저장소 전체에서 LF 로 고정한다.
+# 줄바꿈은 이 폴더 전체에서 LF 로 고정한다.
 #
 # 이 설정이 없으면 Windows 로컬은 CRLF, GitHub Actions(Linux) 는 LF 로 쓰기 때문에
-# 양쪽이 서로 뒤집어 놓는다. 특히 시황/data/*.csv 는 시황/core/store.py 가 항상 LF 로 쓰는데
+# 양쪽이 서로 뒤집어 놓는다. 특히 data/*.csv 는 core/store.py 가 항상 LF 로 쓰는데
 # git 이 체크아웃 때 CRLF 로 바꿔 놓으면 **매 실행마다 파일 전체가 변경된 것으로 잡힌다.**
 # 그러면 '하루치 변경이 몇 줄 diff 로 남는다'는 CSV 저장 설계가 통째로 무의미해진다.
 * text=auto eol=lf
 
 # 데이터 파일은 diff 가 곧 감사 로그이므로 명시적으로 못박는다.
 #
-# ★ 경로 앞부분을 빠뜨리지 말 것 ★
+# ★ 경로는 이 파일이 있는 폴더 기준이다 ★
 #   슬래시가 들어간 패턴은 이 .gitattributes 가 있는 디렉터리에 고정된다.
-#   프로젝트를 시황/ 아래로 옮겼으므로 'data/*.csv' 로는 더 이상 매칭되지 않는다.
-#   `git check-attr text eol -- 시황/data/releases.csv` 로 확인할 수 있다.
-시황/data/*.csv        text eol=lf
-시황/site/data/*.json  text eol=lf
+#   이 파일이 시황/ 안에 있으므로 'data/*.csv' 는 '시황/data/*.csv' 를 가리킨다.
+#   저장소 루트에서 확인할 때는 전체 경로로 물어야 한다:
+#     git check-attr text eol -- 시황/data/releases.csv
+data/*.csv        text eol=lf
+site/data/*.json  text eol=lf
 
 # 바이너리
 *.xlsm binary

@@ -38,7 +38,7 @@
 
 ### 증상
 
-`시황/data/fetch_log.csv` 의 `forexfactory` 행에서 ⚠ 개수를 세면 인과가 분명했다.
+`data/fetch_log.csv` 의 `forexfactory` 행에서 ⚠ 개수를 세면 인과가 분명했다.
 
 ```
 08-03 ~ 08-06   warn=0
@@ -54,7 +54,7 @@
 
 `suggest_mappings()` 가 `calendar_events` **전체**(USD/KRW 제목 127개)를 후보로 썼다.
 백필 전엔 200행이라 사실상 이번 주치였고 무해했는데, 백필 후 영구 오탐이 됐다.
-제안된 것들은 전부 **다른 지표**다 — `시황/core/series.py` 는 `'ISM Manufacturing Prices'` 가
+제안된 것들은 전부 **다른 지표**다 — `core/series.py` 는 `'ISM Manufacturing Prices'` 가
 별칭이 아니라고(가격지불 하위지수) 이미 못 박아 뒀는데, 코드가 매번 그걸 다시 제안하고 있었다.
 
 **고침: 후보를 이번 주 피드로 되돌렸다.** 시그니처가 `suggest_mappings(feed_titles, missing_titles)` 로 바뀌었다.
@@ -97,8 +97,8 @@ ISM 발표가 없는 주에는 `'ISM Manufacturing Prices'` 도 피드에 없다
 `?week=mmmD.yyyy` 로 과거 주를 받을 수 있게 되면서 "놓친 주는 영원히 복구할 수 없다"는 **거짓이 됐다.**
 이전 라운드가 README·워크플로는 고쳤지만 **코드 주석은 안 고쳤고**, 설계 판단 하나가 그 위에 서 있었다.
 
-정정한 곳: `시황/fetchers/calendar_ff.py` 모듈 docstring · `fetch_feed()` · `remap_from_stored()` ·
-`suggest_mappings()`, `시황/core/series.py` 의 `ff_aliases`, `시황/fetchers/ecos.py`.
+정정한 곳: `fetchers/calendar_ff.py` 모듈 docstring · `fetch_feed()` · `remap_from_stored()` ·
+`suggest_mappings()`, `core/series.py` 의 `ff_aliases`, `fetchers/ecos.py`.
 
 **정확한 표현은 "영구 손실"이 아니라 "자동으로는 안 메워지고 사람이 백필을 돌려야 한다"** 이다.
 
@@ -118,7 +118,7 @@ ISM 발표가 없는 주에는 `'ISM Manufacturing Prices'` 도 피드에 없다
 
 ### 3-1. ECOS 키는 과거 커밋에 **아직 남아 있다**
 
-`시황/fetchers/base.py` 가 실패 메시지에 URL 전문을 담았고 ECOS 는 인증키를 **경로에** 넣는다.
+`fetchers/base.py` 가 실패 메시지에 URL 전문을 담았고 ECOS 는 인증키를 **경로에** 넣는다.
 그 메시지가 `fetch_log.csv` → `dashboard.json` → 공개 사이트까지 흘렀다.
 
 **사용자 결정: "키 재발급 안 받을 거야. 이 사이트는 나 말고는 아직 몰라. 그냥 안 보이게만 해."**
@@ -126,7 +126,7 @@ ISM 발표가 없는 주에는 `'ISM Manufacturing Prices'` 도 피드에 없다
 - git 히스토리도 다시 쓰지 않는다. **과거 커밋(`b4fa769` 등)과 이미 배포된 사본에는 키가 남아 있다.**
   마스킹은 앞으로만 막는다. **다음 세션이 "지웠다"고 착각하면 안 된다.**
 - 앞으로의 유출은 3중 방어: `base.py:_safe_url()`(쿼리+호스트별 경로 세그먼트) ·
-  `시황/core/secrets.py:safe_message()`(환경변수 값 문자열 치환) · `시황/core/db.py:log_finish()`(**저장 직전 마지막 관문**).
+  `core/secrets.py:safe_message()`(환경변수 값 문자열 치환) · `core/db.py:log_finish()`(**저장 직전 마지막 관문**).
   3중인 이유는 1번이 우리가 만든 URL 만 알기 때문 — 타임아웃 예외 문자열처럼 1번이 못 보는 경로가 실재한다.
 
 ### 3-2. 공식 피드는 `actual` 을 주지 않는다 — ISM 이 두 달 죽어 있던 진짜 이유
@@ -189,18 +189,18 @@ Nasdaq Data Link(봇 차단) · econdb(401) · fxstreet(401) · ismworld.org(SSO
 PY=/c/Users/greyx/AppData/Local/Programs/Python/Python312/python.exe
 export PYTHONIOENCODING=utf-8
 
-$PY 시황/scripts/verify.py --offline              # 단위·범위 ('개정 차이' 는 정상)
-$PY 시황/scripts/verify.py --bls                  # BLS 대조
-$PY 시황/scripts/verify.py --stale                # uom_sentiment 1건이 정상
-$PY 시황/scripts/collect.py --dry-run --only forexfactory   # 캘린더만 빠르게
-$PY 시황/scripts/collect.py --dry-run             # 전체
-$PY 시황/scripts/export_json.py
+$PY scripts/verify.py --offline              # 단위·범위 ('개정 차이' 는 정상)
+$PY scripts/verify.py --bls                  # BLS 대조
+$PY scripts/verify.py --stale                # uom_sentiment 1건이 정상
+$PY scripts/collect.py --dry-run --only forexfactory   # 캘린더만 빠르게
+$PY scripts/collect.py --dry-run             # 전체
+$PY scripts/export_json.py
 ```
 
 키 마스킹 확인:
 
 ```bash
-git show origin/main:시황/data/fetch_log.csv | grep -c '2S5JQ0TP'   # 0 이어야 한다
+git show origin/main:data/fetch_log.csv | grep -c '2S5JQ0TP'   # 0 이어야 한다
 curl -s https://greyx9-sketch.github.io/macro/data/dashboard.json | grep -c '2S5JQ0TP'
 ```
 
