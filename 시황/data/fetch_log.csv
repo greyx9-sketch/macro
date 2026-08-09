@@ -1,9 +1,4 @@
 source,started_at,finished_at,status,rows,message
-fred,2026-08-01T19:13:32+00:00,2026-08-01T19:13:44+00:00,ok,21269,"12/12 계열, 관측치 21269건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨"
-ecos,2026-08-01T19:13:44+00:00,2026-08-01T19:13:54+00:00,ok,9707,"관측치 9707건, 금리 변경 60회"
-cds,2026-08-01T19:13:54+00:00,2026-08-01T19:14:28+00:00,ok,8311,"2/2 국가 수집, 8311건"
-forexfactory,2026-08-01T19:25:13+00:00,2026-08-01T19:25:13+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
-forexfactory,2026-08-01T19:26:29+00:00,2026-08-01T19:26:29+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
 fred,2026-08-01T19:26:29+00:00,2026-08-01T19:26:40+00:00,ok,21269,"12/12 계열, 관측치 21269건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨"
 ecos,2026-08-01T19:26:40+00:00,2026-08-01T19:26:48+00:00,ok,9707,"관측치 9707건, 금리 변경 60회"
 cds,2026-08-01T19:26:48+00:00,2026-08-01T19:26:56+00:00,ok,8311,"2/2 국가 수집, 8311건"
@@ -199,3 +194,8 @@ forexfactory_html,2026-08-09T15:37:35+00:00,2026-08-09T15:37:35+00:00,ok,0,"http
 fred,2026-08-09T15:37:35+00:00,2026-08-09T15:37:53+00:00,ok,22825,"17/17 계열, 관측치 22825건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
 ecos,2026-08-09T15:37:53+00:00,2026-08-09T15:38:02+00:00,ok,9715,"관측치 9715건, 금리 변경 60회"
 cds,2026-08-09T15:38:02+00:00,2026-08-09T15:38:13+00:00,ok,8326,"2/2 국가 수집, 8326건"
+forexfactory,2026-08-09T15:46:38+00:00,2026-08-09T15:46:39+00:00,ok,4,"원본 73건 저장, 4건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Advance GDP q/q, Average Hourly Earnings m/m, Core PCE Price Index m/m, Employment Cost Index q/q, Federal Funds Rate, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
+forexfactory_html,2026-08-09T15:46:39+00:00,2026-08-09T15:46:39+00:00,ok,0,"http 경로, 원본 73건 · 매핑 4건 · 매핑 실제값 0건 · 페이지 전체 아직 발표된 이벤트 없음"
+fred,2026-08-09T15:46:39+00:00,2026-08-09T15:46:57+00:00,ok,22825,"17/17 계열, 관측치 22825건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
+ecos,2026-08-09T15:46:57+00:00,2026-08-09T15:47:07+00:00,ok,9715,"관측치 9715건, 금리 변경 60회"
+cds,2026-08-09T15:47:07+00:00,2026-08-09T15:47:16+00:00,ok,8326,"2/2 국가 수집, 8326건"
