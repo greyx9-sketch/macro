@@ -179,7 +179,35 @@ Nasdaq Data Link(봇 차단) · econdb(401) · fxstreet(401) · ismworld.org(SSO
 6. **Cloudflare 감지 문자열을 넓게 잡지 말 것.**
    `challenge-platform` 은 **정상 페이지에도 전부 들어있다.** 마커는 `cf_chl_opt` / `Just a moment...` 로 좁게.
 7. **감지기를 추가할 땐 "정상일 때 몇 번 울리는지"를 먼저 세어 볼 것.**
-   이번 라운드가 그 교훈이다. 매번 울리는 경고는 없는 것보다 나쁘다 — 진짜 신호까지 같이 묻는다.
+   매번 울리는 경고는 없는 것보다 나쁘다 — 진짜 신호까지 같이 묻는다.
+   **이 규칙을 어긴 사례가 이 저장소에 다섯 번 있었다.** 추측하지 말고 `verify.py --noise` 로 측정할 것.
+8. **`issues` 와 `notes` 를 섞지 말 것.** 기준은 하나다 — **사람이 보고 할 일이 있는가.**
+   `issues` 는 `fetch_log.csv` 에 영구 보관되고 사이트에도 나간다. `notes` 는 콘솔에만 찍힌다.
+   통과 확인·커버리지 보고를 `issues` 에 넣으면 고장 났을 때 읽어야 할 파일이 오염된다.
+   판단 기준은 `fetchers/base.py` 의 `FetchResult` 주석에 박아 뒀다.
+
+---
+
+## 4-1. 감지기 전수 조사 결과 (2026-08-10) — 다시 조사하지 말 것
+
+규칙 7 을 세 번 어긴 뒤 남은 감지기를 전부 실측했다. 판정은 `fetch_log.csv` 의 발생 빈도다.
+
+| 감지기 | 정상일 때 | 조치 |
+|---|---|---|
+| `fetchers/fred.py` 계절조정 확인됨 | 매 실행 **5건** | `notes` 로 옮기고 1줄로 합침 |
+| `fetchers/calendar_ff.py` 커버리지 목록 | 매 실행 **1건** | `notes` 로 |
+| `fetchers/calendar_ff_html.py` 실제값 0건 | 12회 중 4회 | 판정을 페이지 전체 표본으로 (§1-3) |
+| `calendar_ff.suggest_mappings` | 48회 중 7회 | 후보를 이번 주 피드로 (§1) |
+| `calendar_ff` 별칭 경고 | 매월 예비치 주 | `ff_variants` 신설 (§1) |
+| `core/validate.py` range 검사 | 46회 중 **1회**(초기 임포트) | **정상. 건드리지 말 것** |
+| `scripts/collect.py:cross_check` | **0건** | **정상** |
+| `scripts/collect.py:staleness_check` | 1건(`uom_sentiment` 진짜 정체) | **정상** |
+| `fetchers/cds.py` | **0건** | **정상** |
+| `calendar_ff` 발표시각 파싱 실패 | **0건** | **정상** |
+
+> **range 검사의 12건은 전부 2020년 3~6월 COVID 값이다** — NFP `-20,469K`,
+> 실업수당 `5,946K`. 단위 오류가 아니라 **진짜 역사적 값**이고, 새 값이 들어올 때만
+> 도는 감지기라 초기 임포트 때 1회 울리고 끝났다. 상식 범위를 넓히지 말 것.
 
 ---
 
@@ -192,10 +220,15 @@ export PYTHONIOENCODING=utf-8
 $PY scripts/verify.py --offline              # 단위·범위 ('개정 차이' 는 정상)
 $PY scripts/verify.py --bls                  # BLS 대조
 $PY scripts/verify.py --stale                # uom_sentiment 1건이 정상
+$PY scripts/verify.py --noise                # 정상일 때 반복해 우는 경고 (DB·네트워크 불필요)
 $PY scripts/collect.py --dry-run --only forexfactory   # 캘린더만 빠르게
 $PY scripts/collect.py --dry-run             # 전체
 $PY scripts/export_json.py
 ```
+
+> **`--noise` 는 감지기를 건드린 뒤 며칠 지나서 돌려야 뜻이 있다.** `fetch_log.csv`
+> 누적을 보기 때문이다. 방금 고쳤다면 옛 기록이 그대로 잡히는 게 정상이다 —
+> 고친 뒤 실행이 쌓여야 발생률이 내려간다.
 
 키 마스킹 확인:
 
