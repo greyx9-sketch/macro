@@ -1,9 +1,4 @@
 source,started_at,finished_at,status,rows,message
-cds,2026-08-02T08:54:55+00:00,2026-08-02T08:55:03+00:00,ok,8311,"2/2 국가 수집, 8311건"
-forexfactory,2026-08-02T12:42:31+00:00,2026-08-02T12:42:31+00:00,ok,7,"원본 94건 저장, 7건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Advance GDP q/q, CPI y/y, Core PCE Price Index m/m, Employment Cost Index q/q, Federal Funds Rate, Retail Sales m/m, Revised UoM Consumer Sentiment"
-fred,2026-08-02T12:42:31+00:00,2026-08-02T12:42:49+00:00,ok,22808,"17/17 계열, 관측치 22808건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
-ecos,2026-08-02T12:42:49+00:00,2026-08-02T12:43:00+00:00,ok,9708,"관측치 9708건, 금리 변경 60회"
-cds,2026-08-02T12:43:00+00:00,2026-08-02T12:43:32+00:00,ok,8312,"2/2 국가 수집, 8312건"
 forexfactory,2026-08-02T13:49:36+00:00,2026-08-02T13:49:36+00:00,ok,7,"원본 94건 저장, 7건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Advance GDP q/q, CPI y/y, Core PCE Price Index m/m, Employment Cost Index q/q, Federal Funds Rate, Retail Sales m/m, Revised UoM Consumer Sentiment"
 fred,2026-08-02T13:49:36+00:00,2026-08-02T13:49:51+00:00,ok,22808,"17/17 계열, 관측치 22808건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
 ecos,2026-08-02T13:49:51+00:00,2026-08-02T13:49:59+00:00,ok,9708,"관측치 9708건, 금리 변경 60회"
@@ -199,3 +194,8 @@ forexfactory_html,2026-08-08T15:01:38+00:00,2026-08-08T15:01:39+00:00,ok,2,"http
 fred,2026-08-08T15:01:39+00:00,2026-08-08T15:02:07+00:00,ok,22824,"17/17 계열, 관측치 22824건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
 ecos,2026-08-08T15:02:07+00:00,2026-08-08T15:02:17+00:00,ok,9714,"관측치 9714건, 금리 변경 60회"
 cds,2026-08-08T15:02:17+00:00,2026-08-08T15:02:49+00:00,ok,8324,"2/2 국가 수집, 8324건"
+forexfactory,2026-08-09T05:29:27+00:00,2026-08-09T05:29:27+00:00,ok,4,"원본 73건 저장, 4건 지표 매핑 | '미시간대 소비자심리' 이 별칭 'Prelim UoM Consumer Sentiment' 로 잡혔습니다 — ForexFactory 가 이벤트명을 바꿨을 수 있습니다 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Advance GDP q/q, Average Hourly Earnings m/m, Core PCE Price Index m/m, Employment Cost Index q/q, Federal Funds Rate, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate | ⚠ ff_title 확인 필요 — 'ISM Manufacturing PMI' 은 못 찾았지만 피드에 비슷한 제목이 있음: 'ISM Manufacturing Prices' | ⚠ ff_title 확인 필요 — 'ISM Services PMI' 은 못 찾았지만 피드에 비슷한 제목이 있음: 'Final Services PMI' | ⚠ ff_title 확인 필요 — 'Non-Farm Employment Change' 은 못 찾았지만 피드에 비슷한 제목이 있음: 'ADP Non-Farm Employment Change'"
+forexfactory_html,2026-08-09T05:29:27+00:00,2026-08-09T05:29:28+00:00,ok,2,"http 경로, 원본 99건 · 매핑 7건 · 실제값 2건"
+fred,2026-08-09T05:29:28+00:00,2026-08-09T05:29:46+00:00,ok,22824,"17/17 계열, 관측치 22824건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨 | 근원 PCE (% MoM): 계절조정 'SA' 확인됨 | 고용비용지수 (% QoQ): 계절조정 'SA' 확인됨 | 실질 GDP (% QoQ 연율): 계절조정 'SAAR' 확인됨 | 소매판매 (% MoM): 계절조정 'SA' 확인됨"
+ecos,2026-08-09T05:29:46+00:00,2026-08-09T05:29:54+00:00,ok,9714,"관측치 9714건, 금리 변경 60회"
+cds,2026-08-09T05:29:54+00:00,2026-08-09T05:30:04+00:00,ok,8325,"2/2 국가 수집, 8325건"
