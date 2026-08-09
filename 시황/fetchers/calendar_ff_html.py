@@ -172,6 +172,33 @@ def iter_events(days: list[dict]):
             )
 
 
+def past_actual_coverage(days: list[dict]) -> tuple[int, int]:
+    """(발표 시각이 지난 이벤트 수, 그중 실제값이 파싱된 수).
+
+    값 추출이 깨졌는지 판정하는 표본이다. **페이지 전체**를 보며,
+    우리가 추적하는 22종으로 좁히지 않는다.
+
+    좁히면 안 되는 이유가 실측으로 드러났다 — `store_week` 의 `with_actual` 은
+    **매핑된** 이벤트만 세는데, 우리 지표는 한 주에 서너 개만 발표된다.
+    그래서 '우리 지표가 이번 주에 아직 안 나왔다'와 '파서가 깨졌다'가 구분되지 않는다.
+    실제로 2026-08-10 의 페이지는 CNY CPI/PPI 의 실제값을 멀쩡히 주고 있었는데도
+    매핑 기준으로는 0건이었다.
+
+    반대로 페이지 전체를 보면 표본이 수십 건이라 판정이 훨씬 안정적이다.
+    지난 이벤트가 있는데 **그중 어느 하나도** 실제값이 없다면 그때가 진짜 이상 신호다.
+    (연설·휴장처럼 원래 실제값이 없는 이벤트가 섞여 있어도, 지난 것이 전부
+     그런 종류일 확률은 주가 진행될수록 빠르게 0 에 수렴한다.)
+    """
+    now = datetime.now(timezone.utc)
+    past = with_actual = 0
+    for dt, _cur, _name, actual, *_ in iter_events(days):
+        if dt <= now:
+            past += 1
+            if actual:
+                with_actual += 1
+    return past, with_actual
+
+
 # ---------------------------------------------------------------------------
 # 가져오기 — 평문 GET, 막히면 Playwright
 # ---------------------------------------------------------------------------
@@ -341,10 +368,33 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
     stored, mapped, with_actual = store_week(conn, days, dry_run=dry_run)
 
     issues: list[str] = []
-    if with_actual == 0:
-        issues.append("실제값이 하나도 없습니다 — 페이지 구조가 바뀌었는지 확인이 필요합니다")
+    past, past_with_actual = past_actual_coverage(days)
+
+    # ★ 구조 변화 감지는 두 단계로 나눈다 ★
+    #   원래는 `with_actual == 0` 하나로 판정했다. 그런데 그 값은 **우리 지표에
+    #   매핑된 것만** 세므로 두 가지를 구분하지 못했다 —
+    #   '파서가 깨졌다' 와 '우리 지표가 이번 주에 아직 발표되지 않았다'.
+    #   후자는 대부분의 주에 참이고, 캘린더가 일요일에 다음 주로 롤오버하면 확실히 참이다.
+    #   수집이 13:37·01:43 UTC 라 **매주 일·월요일마다 정상 상황에서 경고가 울렸다.**
+    #   매번 울리는 경고는 없는 것보다 나쁘다 — 진짜 신호까지 같이 묻힌다.
+    #
+    #   그래서 판정을 '우리 지표' 가 아니라 '페이지 전체' 로 옮겼다.
+    #   계열별로 값이 안 들어오는 것은 여기가 아니라 validate.py 의 정체 감지가 볼 일이다.
+    if stored == 0:
+        # 원본조차 못 뽑았다. 이게 진짜 '구조가 바뀌었다' 의 모습이다.
+        # (블롭 자체가 없으면 fetch 단계에서 BlockedError 로 걸러진다.
+        #  여기까지 왔는데 0건이면 블롭은 있는데 안이 달라진 것이다.)
+        issues.append("원본 이벤트를 하나도 뽑지 못했습니다 — "
+                      "페이지 구조가 바뀌었는지 확인이 필요합니다")
+    elif past > 0 and past_with_actual == 0:
+        # 지난 이벤트가 있는데 페이지 어디에서도 실제값을 못 뽑았다 — 값 추출이 깨진 쪽.
+        issues.append(f"발표 시각이 지난 이벤트 {past}건 전부에서 실제값을 뽑지 못했습니다 — "
+                      "값 추출이 깨졌는지 확인이 필요합니다")
+
+    detail = f"지난 이벤트 {past}건 중 실제값 {past_with_actual}건" if past else "아직 발표된 이벤트 없음"
     return FetchResult(
         SOURCE, ok=True, rows=with_actual,
-        message=f"{via} 경로, 원본 {stored}건 · 매핑 {mapped}건 · 실제값 {with_actual}건",
+        message=f"{via} 경로, 원본 {stored}건 · 매핑 {mapped}건 · "
+                f"매핑 실제값 {with_actual}건 · 페이지 전체 {detail}",
         issues=issues,
     )
