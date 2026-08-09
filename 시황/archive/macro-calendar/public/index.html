@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0d0d" />
+  <title>매크로 캘린더</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1>매크로 캘린더</h1>
+      <button id="refresh" class="icon-btn" aria-label="새로고침">↻</button>
+    </div>
+    <p id="syncinfo" class="syncinfo">불러오는 중…</p>
+  </header>
+
+  <main>
+    <!-- 상시 지표 요약 -->
+    <section class="strip" id="strip" aria-label="주요 지표 요약"></section>
+
+    <!-- 컨트롤 -->
+    <section class="controls">
+      <div class="monthnav">
+        <button id="prev" class="icon-btn" aria-label="이전 달">‹</button>
+        <span id="monthlabel" class="monthlabel"></span>
+        <button id="next" class="icon-btn" aria-label="다음 달">›</button>
+        <button id="today" class="text-btn">오늘</button>
+      </div>
+
+      <div class="filters">
+        <div class="seg" role="group" aria-label="보기 방식">
+          <button data-view="calendar" class="on">캘린더</button>
+          <button data-view="list">리스트</button>
+        </div>
+        <div class="seg" role="group" aria-label="국가 필터">
+          <button data-country="ALL" class="on">전체</button>
+          <button data-country="US">🇺🇸 미국</button>
+          <button data-country="KR">🇰🇷 한국</button>
+        </div>
+        <div class="seg" role="group" aria-label="중요도 필터">
+          <button data-imp="1" class="on">전체</button>
+          <button data-imp="3">주요만</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 캘린더 -->
+    <section id="calendar" class="calendar" aria-label="발표 일정 캘린더">
+      <div class="dow">
+        <span>일</span><span>월</span><span>화</span><span>수</span>
+        <span>목</span><span>금</span><span>토</span>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+
+    <!-- 리스트 -->
+    <section id="list" class="list" hidden aria-label="발표 일정 목록"></section>
+
+    <p class="legend">
+      <span class="key"><i class="dot us"></i>미국</span>
+      <span class="key"><i class="dot kr"></i>한국</span>
+      <span class="key">★★★ 중요도</span>
+      <span class="key"><i class="dot done"></i>발표 완료</span>
+    </p>
+  </main>
+
+  <!-- 날짜 상세 시트 -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-handle" data-close></div>
+      <h2 id="sheet-title"></h2>
+      <div id="sheet-body"></div>
+    </div>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

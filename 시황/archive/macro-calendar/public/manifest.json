@@ -1,0 +1,13 @@
+{
+  "name": "매크로 캘린더",
+  "short_name": "매크로",
+  "description": "한국·미국 매크로 경제 발표 일정과 실시간 지표",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

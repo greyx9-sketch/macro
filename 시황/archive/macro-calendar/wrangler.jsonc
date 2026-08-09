@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "macro-calendar",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // 로컬 개발 서버 설정.
+  // inspector_port 를 고정하는 이유: 기본값 9229 는 다른 디버거나 예약 포트와
+  // 부딪히는 경우가 있는데, 그러면 서버 자체가 안 뜨고 바로 죽습니다.
+  "dev": {
+    "port": 8788,
+    "inspector_port": 9333
+  },
+
+  // 정적 파일(대시보드 UI). 워커가 /api/* 를 처리하고 나머지는 여기서 서빙합니다.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // D1 데이터베이스. `wrangler d1 create macro-db` 실행 후 나오는 id 를 넣으세요.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "macro-db",
+      "database_id": "PLACEHOLDER_RUN_D1_CREATE"
+    }
+  ],
+
+  // 무료 플랜은 워커당 크론 3개까지. 시각은 모두 UTC 기준입니다.
+  "triggers": {
+    "crons": [
+      "*/5 * * * *",  // 발표 감지 + 사전/사후 알림
+      "10 20 * * *",  // 매일 05:10 KST — 캘린더 및 지표 전체 동기화
+      "0 22 * * *"    // 매일 07:00 KST — 오늘의 일정 요약 발송
+    ]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

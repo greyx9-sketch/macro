@@ -28,26 +28,26 @@ set FRED_API_KEY=발급받은키
 set ECOS_API_KEY=발급받은키
 
 # 2. 엑셀 과거 데이터 백필 (최초 1회)
-python scripts/import_excel.py "C:\Users\greyx\Desktop\매크로 머티리얼.xlsm"
+python 시황/scripts/import_excel.py "C:\Users\greyx\Desktop\매크로 머티리얼.xlsm"
 
 # 3. 매핑이 맞는지 검증
-python scripts/verify.py
-python scripts/verify.py --bls    # 원 통계기관(BLS) 과 직접 대조 — 키 불필요, IP 당 25회/일
-python scripts/verify.py --stale  # 갱신이 멈춘 계열 찾기 — 값의 정오가 아니라 '들어오고 있는가'
+python 시황/scripts/verify.py
+python 시황/scripts/verify.py --bls    # 원 통계기관(BLS) 과 직접 대조 — 키 불필요, IP 당 25회/일
+python 시황/scripts/verify.py --stale  # 갱신이 멈춘 계열 찾기 — 값의 정오가 아니라 '들어오고 있는가'
 
 # 4. 수집 + 화면용 JSON 생성
-python scripts/collect.py
-python scripts/export_json.py
+python 시황/scripts/collect.py
+python 시황/scripts/export_json.py
 
 # 5. 확인
-python -m http.server 8000 -d site     # http://localhost:8000
+python -m http.server 8000 -d 시황/site     # http://localhost:8000
 ```
 
 ISM 역사를 메우려면(최초 1회, 약 8분):
 
 ```bash
-python scripts/backfill_ff_weeks.py --from 2020-01 --dry-run   # 먼저 확인
-python scripts/backfill_ff_weeks.py --from 2020-01
+python 시황/scripts/backfill_ff_weeks.py --from 2020-01 --dry-run   # 먼저 확인
+python 시황/scripts/backfill_ff_weeks.py --from 2020-01
 ```
 
 필수 외부 패키지는 **없다**. `playwright` 는 CDS 5년물과, ForexFactory 평문 요청이
@@ -119,7 +119,7 @@ ff_calendar_thisweek.csv    동일
 
 남은 하나가 **캘린더 웹페이지**다. 응답 안에 `window.calendarComponentStates[N]` 이 있고
 그 `days` 배열이 공식 피드의 상위집합이다 — `actual` 과 `revision` 까지 들어 있다.
-`fetchers/calendar_ff_html.py` 가 이걸 읽는다.
+`시황/fetchers/calendar_ff_html.py` 가 이걸 읽는다.
 
 파서를 믿을 근거는 두 가지다.
 
@@ -131,7 +131,7 @@ ff_calendar_thisweek.csv    동일
 HTML 은 빈 칸만 메운다. 한 값을 두 소스가 각자 계산하기 시작하면 언젠가 갈린다.
 
 그리고 `?week=mmmD.yyyy` 로 **과거 주를 돌려준다**(2020-03 까지 확인). 위의
-"공식 피드로는 복구할 수 없다" 에 단서가 붙는 이유다 — `scripts/backfill_ff_weeks.py`
+"공식 피드로는 복구할 수 없다" 에 단서가 붙는 이유다 — `시황/scripts/backfill_ff_weeks.py`
 가 월 첫 두 주만 골라 받아 ISM 역사를 메운다. 백필은 **빈 칸만 채운다**(`fill_only`).
 엑셀에서 온 발표 당시 컨센서스를 지금 렌더링된 값으로 바꿔치기하면
 서프라이즈 계산이 통째로 흔들리기 때문이다.
@@ -199,33 +199,52 @@ worldgovernmentbonds 페이지는 값이 전부 `data-async-variable=…>----</s
 
 ## 구조
 
+저장소 루트에는 `.github/`(워크플로 — GitHub 가 루트에서만 읽으므로 옮길 수 없다)와
+문서·git 설정만 두고, **프로젝트 본체는 `시황/` 아래**에 있다.
+
 ```
-core/
-  series.py     ★ 22개 지표 단일 정의 — 소스·단위·스케일·파생식·발표지연
-  schema.sql      observations / releases / revisions / calendar_events / fetch_log
-  db.py           업서트, 개정 이력 기록, 이벤트 발표일 병합
-  store.py      ★ CSV ↔ SQLite. 커밋되는 영속 형식은 CSV 다 (아래 참조)
-  transform.py    YoY · MoM · 전월차분 (달력 기준, 위치 기준 아님)
-  validate.py     단위·범위·중복 검사 + 정체 감지
-  secrets.py    ★ 실패 메시지에 API 키가 실리지 않게 하는 마지막 관문
-  xlsx.py         표준 라이브러리만으로 xlsx 읽기
-fetchers/
-  base.py         재시도, 실패 격리, 단위 파싱, URL 마스킹
-  fred.py         12종 + 최초발표값(vintage)
-  calendar_ff.py       예측·이전 (공식 JSON 피드 — 실제값은 주지 않는다)
-  calendar_ff_html.py  실제값 보충. ISM 2종의 유일한 경로. 평문→Playwright 2단
-  ecos.py         한국 기준금리
-  cds.py          Playwright, best-effort
-scripts/
-  import_excel.py      엑셀 백필 + 오류 정정 리포트
-  collect.py           일일 수집 진입점 (+ 정체 감지)
-  verify.py            엑셀 ↔ FRED 대조 · --bls · --stale
-  backfill_ff_weeks.py 과거 주 백필 (1회성, ISM 역사 복구)
-  export_json.py       site/data/dashboard.json 생성
-site/             빌드 체인 없는 정적 대시보드
-data/*.csv        ★ 커밋 대상 — 영속 저장 형식
-data/macro.sqlite   작업용. CSV 에서 재생성되는 파생물이라 커밋하지 않는다
+.github/workflows/collect.yml   수집·배포 워크플로
+README.md · HANDOFF.md          문서
+.gitignore · .gitattributes     ★ 경로 패턴이 시황/ 을 가리켜야 한다 (아래 참조)
+
+시황/
+  core/
+    series.py     ★ 22개 지표 단일 정의 — 소스·단위·스케일·파생식·발표지연
+    schema.sql      observations / releases / revisions / calendar_events / fetch_log
+    db.py           업서트, 개정 이력 기록, 이벤트 발표일 병합
+    store.py      ★ CSV ↔ SQLite. 커밋되는 영속 형식은 CSV 다 (아래 참조)
+    transform.py    YoY · MoM · 전월차분 (달력 기준, 위치 기준 아님)
+    validate.py     단위·범위·중복 검사 + 정체 감지
+    secrets.py    ★ 실패 메시지에 API 키가 실리지 않게 하는 마지막 관문
+    xlsx.py         표준 라이브러리만으로 xlsx 읽기
+  fetchers/
+    base.py         재시도, 실패 격리, 단위 파싱, URL 마스킹
+    fred.py         12종 + 최초발표값(vintage)
+    calendar_ff.py       예측·이전 (공식 JSON 피드 — 실제값은 주지 않는다)
+    calendar_ff_html.py  실제값 보충. ISM 2종의 유일한 경로. 평문→Playwright 2단
+    ecos.py         한국 기준금리
+    cds.py          Playwright, best-effort
+  scripts/
+    import_excel.py      엑셀 백필 + 오류 정정 리포트
+    collect.py           일일 수집 진입점 (+ 정체 감지)
+    verify.py            엑셀 ↔ FRED 대조 · --bls · --stale
+    backfill_ff_weeks.py 과거 주 백필 (1회성, ISM 역사 복구)
+    export_json.py       시황/site/data/dashboard.json 생성
+  site/             빌드 체인 없는 정적 대시보드 (내부 참조는 전부 상대경로)
+  data/*.csv        ★ 커밋 대상 — 영속 저장 형식
+  data/macro.sqlite   작업용. CSV 에서 재생성되는 파생물이라 커밋하지 않는다
+  archive/macro-calendar/  07-26 Cloudflare 버전. 죽은 코드 — 보관 이유는 그 안 README 참조
 ```
+
+> **`시황/` 아래로 옮겨도 파이썬은 한 줄도 안 고쳤다.** 모든 경로가 `__file__` 기준이라
+> (`시황/core/db.py`·`시황/core/store.py`·`시황/scripts/*.py`) 다섯 폴더가 함께 움직이면 상대관계가 그대로다.
+> `시황/site/` 내부 참조도 전부 상대경로라 **공개 URL 도 바뀌지 않았다** —
+> Pages 아티팩트의 루트가 `시황/site` 이기 때문이다.
+>
+> **대신 `.gitignore`·`.gitattributes` 는 반드시 같이 고쳐야 했다.**
+> 슬래시가 든 패턴은 그 파일이 있는 디렉터리에 고정되므로 `시황/data/*.csv` 로는
+> `시황/data/*.csv` 가 매칭되지 않는다. 놓쳤다면 **에러 없이** SQLite 가 커밋되기 시작하고
+> CSV 줄바꿈이 매번 뒤집혔을 것이다.
 
 ### 왜 SQLite 가 아니라 CSV 를 커밋하는가
 
@@ -236,7 +255,7 @@ data/macro.sqlite   작업용. CSV 에서 재생성되는 파생물이라 커밋
 CSV(합계 1.4 MB)로 저장하면 하루치 변경이 몇 줄 diff 로 남고, 무엇보다
 
 ```bash
-git log -p data/observations.csv     # 사람이 읽는 수정치 감사 로그
+git log -p 시황/data/observations.csv     # 사람이 읽는 수정치 감사 로그
 ```
 
 가 성립한다. '개정 추적'이라는 원래 목표가 여기서 실제로 완성된다.
@@ -262,7 +281,7 @@ Actions 러너처럼 매번 빈 상태로 시작해도 그대로 이어서 돌�
 실재하지 않는 숫자가 나오는데, NFP 로 그럴듯한 크기라 범위 검사에 걸리지 않았다.
 
 네 번째는 **같은 실수를 목록이 두 군데 있어서 반복한** 경우다.
-`qoq` 를 `core/transform.py` 에 추가하고 `fetchers/fred.py` 가 따로 들고 있던
+`qoq` 를 `시황/core/transform.py` 에 추가하고 `시황/fetchers/fred.py` 가 따로 들고 있던
 목록에는 등록하지 않아, 최초발표값 경로가 1개짜리 목록으로 전분기비를 계산하다
 전부 `None` 이 됐다. 지금은 그 목록이 변환 정의와 같은 파일에 있고,
 등록되지 않은 변환을 만나면 조용히 `None` 을 만드는 대신 예외를 던진다.
@@ -306,7 +325,7 @@ ISM 2종이 두 달 동안 멈춰 있었는데 어떤 검사에도 안 걸렸다
 '들어온 값이 말이 되는가' 만 봤기 때문이다 — 범위·급변·발표값↔관측치 대조. 안 들어온
 것을 보는 눈이 없었다.
 
-`core/validate.py:check_staleness` 가 그 눈이다. 날짜 차이를 그대로 쓰면 안 된다:
+`시황/core/validate.py:check_staleness` 가 그 눈이다. 날짜 차이를 그대로 쓰면 안 된다:
 
 | 지표 | 최신 기준시점 | 오늘과의 차이 | 실제 상태 |
 |---|---|---|---|
@@ -325,7 +344,7 @@ ISM 2종이 두 달 동안 멈춰 있었는데 어떤 검사에도 안 걸렸다
 주기로만 판정한다.
 
 ```bash
-python scripts/verify.py --stale     # 멈춘 계열이 있으면 종료 코드 1
+python 시황/scripts/verify.py --stale     # 멈춘 계열이 있으면 종료 코드 1
 ```
 
 화면에는 경보일 때만 적는다(`2.2개월째 갱신 없음`). 밀린 정도를 늘 적으면 카드 20장이
@@ -343,10 +362,10 @@ https://ecos.bok.or.kr/api/StatisticSearch/{KEY}/json/kr/1/10000/...
 
 가리는 지점을 두 곳에 둔다.
 
-- `fetchers/base.py:_safe_url` — 쿼리의 `api_key`·`token` 류와, **호스트별 경로 규칙**.
+- `시황/fetchers/base.py:_safe_url` — 쿼리의 `api_key`·`token` 류와, **호스트별 경로 규칙**.
   경로 마스킹을 일반화하지 않는다. 아무 경로나 가리면 오류 메시지를 읽을 수 없게 되어
   디버깅용으로 남기는 의미가 사라진다.
-- `core/db.py:log_finish` → `core/secrets.py:safe_message` — 저장 직전 마지막 관문.
+- `시황/core/db.py:log_finish` → `시황/core/secrets.py:safe_message` — 저장 직전 마지막 관문.
   환경변수에 든 키 문자열이 보이면 통째로 지운다. URL 마스킹이 놓치는 경로
   (서드파티 예외 메시지, 응답 본문 조각, 앞으로 추가될 소스)를 한 번 더 막는다.
 
@@ -581,7 +600,7 @@ CPI 지수·PPI 지수에는 **붙이지 않는다.** 물가 수준 지수는 �
 ### 매핑 검증 (2026-08-01)
 
 ```bash
-python scripts/verify.py --offline     # API 키 없이 커밋된 데이터로 검증
+python 시황/scripts/verify.py --offline     # API 키 없이 커밋된 데이터로 검증
 ```
 
 엑셀 값은 이제 **독립적인 제3의 대조군**으로만 쓴다 — 손으로 다른 출처에서 옮겨 적은
@@ -604,7 +623,7 @@ NFP 는 두 번 개정되므로 정확 일치율이 2% 인 게 오히려 맞다 
 엑셀에는 2026-07-03, 2026-06-19 에 값이 있는데 이 날들은 미국 휴장일이라 FRED 에 호가 자체가 없다.
 엑셀의 값들은 FRED 에 존재하지만 라벨과 다른 날짜에 붙어 있다.
 
-### 제거한 엑셀 실제값 (`scripts/prune_excel_actuals.py`)
+### 제거한 엑셀 실제값 (`시황/scripts/prune_excel_actuals.py`)
 
 처음에는 '자동 소스가 있으면 엑셀 실제값을 전부 지운다'는 규칙을 세웠다.
 **실제 데이터로 확인해 보니 그 규칙은 멀쩡한 데이터를 442건이나 지웠다.**
@@ -639,7 +658,7 @@ PPI 는 별도 제거가 필요 없었다 — 계절조정 계열로 고치자 F
 | 고용 T9·U8·V8·V9 | 숫자 열에 `'187K'`·`'201K'`·`'209K'` 문자열 | 숫자로 변환 |
 | 고용 S열 | 기준주 `2025-11-15` 중복 (셧다운 시기 불규칙 발표) | 리포트에 표시 |
 
-`python scripts/import_excel.py --dry-run` 으로 DB 를 건드리지 않고 확인할 수 있다.
+`python 시황/scripts/import_excel.py --dry-run` 으로 DB 를 건드리지 않고 확인할 수 있다.
 
 ---
 
@@ -650,12 +669,12 @@ PPI 는 별도 제거가 필요 없었다 — 계절조정 계열로 고치자 F
 | 계기 | 하는 일 |
 |---|---|
 | 하루 두 번 (09:10 / 21:10 UTC) | 수집 → CSV 커밋 → 배포 |
-| `main` 에 push | 코드 변경을 즉시 배포 (`data/**`, `site/data/**`, `*.md` 제외) |
+| `main` 에 push | 코드 변경을 즉시 배포 (`시황/data/**`, `시황/site/data/**`, `*.md` 제외) |
 | 수동 실행 | 소스 지정·CDS 건너뛰기 가능 |
 
 push 트리거가 없던 동안 **코드를 고쳐도 사이트가 갱신되지 않는** 문제가 있었다.
 `paths-ignore` 에 봇이 커밋하는 경로를 모두 넣어야 무한 루프가 나지 않는다 —
-`data/**` 만 넣으면 `site/data/dashboard.json` 커밋이 워크플로를 다시 부른다.
+`시황/data/**` 만 넣으면 `시황/site/data/dashboard.json` 커밋이 워크플로를 다시 부른다.
 
 ## GitHub Actions 배포
 
@@ -692,8 +711,8 @@ INSERT INTO manual_overrides (series_id, ref_date, field, value, reason, created
 VALUES ('ism_manufacturing', '2026-07-01', 'actual', 53.3, 'ISM 사이트에서 직접 확인', datetime('now'));
 ```
 
-`scripts/collect.py` 가 마지막 단계에서 반영하며, 대시보드 표에 `수동` 태그가 붙는다.
-`data/manual_overrides.csv` 를 직접 편집해도 된다 — 그쪽이 영속 형식이다.
+`시황/scripts/collect.py` 가 마지막 단계에서 반영하며, 대시보드 표에 `수동` 태그가 붙는다.
+`시황/data/manual_overrides.csv` 를 직접 편집해도 된다 — 그쪽이 영속 형식이다.
 
 이 경로가 실제로 필요해지는 경우는 하나다: **ISM 2종의 스크레이핑이 막혔을 때.**
 나머지 지표는 FRED·ECOS 가 언제든 다시 주므로 다음 실행이 알아서 메운다.
