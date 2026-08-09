@@ -119,10 +119,17 @@ def main() -> int:
 
         status = "ok" if result.ok else "failed"
         print(f"   {'성공' if result.ok else '실패'} — {result.message or '(메시지 없음)'}")
+        # 확인이 필요한 것과 참고 사항을 눈으로도 갈라 놓는다.
         for issue in result.issues:
             print(f"   · {issue}")
+        for note in result.notes:
+            print(f"     ({note})")
 
         if log_id is not None:
+            # ★ notes 는 로그에 남기지 않는다 ★
+            #   fetch_log.csv 는 영구 보관되고, 고장 났을 때 사람이 읽는 파일이다.
+            #   '계절조정 확인됨' 같은 통과 기록을 매 실행 쌓으면 진짜 신호가 묻힌다.
+            #   그 실행의 전말은 Actions 콘솔 로그에 남으므로 되짚을 수 있다.
             msg = result.message
             if result.issues:
                 msg += " | " + " | ".join(result.issues)

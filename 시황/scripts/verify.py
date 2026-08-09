@@ -40,7 +40,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
 from core import db as db_mod  # noqa: E402
 from core.series import ALL_SERIES, BY_ID, Series, format_value  # noqa: E402
@@ -290,6 +291,74 @@ def verify_stale(conn) -> int:
     return 1
 
 
+def verify_noise(threshold: float = 0.30) -> int:
+    """정상 상황에서 반복해 울리는 경고를 찾는다.
+
+    이 저장소는 같은 실패를 네 번 반복했다 — 감지기가 정상일 때도 울려서
+    아무도 안 보게 되고, 그러면 진짜 신호까지 같이 묻히는 것.
+    (계절조정 통과 확인 · 캘린더 커버리지 보고 · 유사 제목 오탐 ·
+     별칭 경고 · '실제값 0건' 오탐.)
+
+    규칙을 문서에만 적어 두면 또 반복된다. **측정을 명령으로 남긴다.**
+    새 경고를 넣었으면 며칠 돌린 뒤 이걸 한 번 돌려 볼 것.
+
+    판정: fetch_log 의 issue 조각을 정규화해 소스별 실행 대비 발생률을 낸다.
+    숫자와 따옴표 안 내용은 마스킹한다 — 같은 경고가 값만 달라 다르게 세이지 않게.
+    """
+    import csv
+    import re
+    from collections import Counter, defaultdict
+
+    path = ROOT / "data" / "fetch_log.csv"
+    if not path.exists():
+        print(f"{path} 가 없습니다. 아직 수집을 돌린 적이 없습니다.")
+        return 0
+
+    with path.open(encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    if not rows:
+        print("fetch_log 가 비어 있습니다.")
+        return 0
+
+    runs = Counter(r["source"] for r in rows)
+    per_source: dict[str, Counter] = defaultdict(Counter)
+    for r in rows:
+        # message 는 '본문 | issue | issue …' 형태다. 본문은 세지 않는다.
+        for piece in r["message"].split(" | ")[1:]:
+            key = re.sub(r"'[^']*'", "'…'", piece)
+            key = re.sub(r"\d+", "N", key)
+            per_source[r["source"]][key[:70]] += 1
+
+    print("경고가 정상 상황에서 얼마나 자주 울리는지 — 실행 대비 발생률입니다.")
+    print(f"기준: {threshold:.0%} 초과면 '너무 잦음'.\n")
+
+    noisy: list[tuple[str, str, int, int]] = []
+    for source in sorted(runs):
+        n = runs[source]
+        top = per_source[source].most_common()
+        print(f"[{source}] {n}회 실행")
+        if not top:
+            print("   경고 없음")
+        for key, count in top[:8]:
+            rate = count / n
+            mark = "⚠ 너무 잦음" if rate > threshold else ""
+            print(f"   {count:4}/{n:<4} {rate:5.0%}  {key} {mark}")
+            if rate > threshold:
+                noisy.append((source, key, count, n))
+        print()
+
+    print("=" * 70)
+    if not noisy:
+        print(f"{threshold:.0%} 를 넘게 울리는 경고가 없습니다.")
+        return 0
+    print(f"{len(noisy)}건이 너무 자주 울립니다 — 정상 상황에서도 울리고 있는지 확인하세요.")
+    print("정상인데 울리는 것이면 경고(issues)가 아니라 참고(notes)로 옮기거나,")
+    print("판정 조건을 '진짜 이상한 때'로 좁혀야 합니다. FetchResult 주석 참조.")
+    for source, key, count, n in noisy:
+        print(f"   · [{source}] {count}/{n} — {key}")
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="엑셀 ↔ FRED 대조 검증")
     ap.add_argument("--series", help="이 지표만 검증")
@@ -302,7 +371,15 @@ def main() -> int:
                     help="--bls 가 대조할 기간(년). BLS v1 은 한 번에 최대 10년이다")
     ap.add_argument("--stale", action="store_true",
                     help="갱신이 멈춘 계열을 찾는다 (값의 정오가 아니라 '들어오고 있는가')")
+    ap.add_argument("--noise", action="store_true",
+                    help="정상 상황에서 반복해 울리는 경고를 찾는다 (DB·네트워크 불필요)")
+    ap.add_argument("--noise-threshold", type=float, default=0.30,
+                    help="--noise 가 '너무 잦음'으로 볼 발생률 (기본 0.30)")
     args = ap.parse_args()
+
+    # fetch_log.csv 만 읽으므로 DB 연결도 네트워크도 필요 없다.
+    if args.noise:
+        return verify_noise(args.noise_threshold)
 
     if args.stale:
         conn = db_mod.connect()

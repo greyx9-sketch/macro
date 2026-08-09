@@ -244,14 +244,22 @@ def collect(conn, *, dry_run: bool = False, start: str = "1990-01-01") -> FetchR
     resourced = 0
     issues: list[str] = []
     failed: list[str] = []
+    sa_required = sum(1 for s in all_fred_series() if s.require_seasonal_adjustment)
+    sa_ok = 0
 
     for s in all_fred_series():
         try:
             # 계절조정 요구가 걸린 지표는 값을 받기 전에 먼저 검증한다.
             # 틀린 계열이면 한 건도 저장하지 않는 것이 맞다.
+            #
+            # ★ 통과를 issues 에 넣지 않는다 ★
+            #   이 함수는 **실패하면 예외를 던진다** — 그 지표는 아래 except 에서
+            #   failed 로 빠지고 그것이 진짜 신호다. 통과는 사람이 할 일이 없다.
+            #   예전에는 계열마다 "계절조정 'SA' 확인됨"을 issues 에 쌓아서
+            #   매 실행 5줄씩 fetch_log 에 영구히 남겼다. 세어 보고 지웠다.
             sa = assert_seasonal_adjustment(s, key=key)
             if sa:
-                issues.append(f"{s.name_ko}: 계절조정 '{sa}' 확인됨")
+                sa_ok += 1
             result = series_points(s, start=start, key=key)
         except Exception as exc:  # noqa: BLE001 — 지표 단위로 격리
             failed.append(f"{s.name_ko}({s.fred_id}): {type(exc).__name__}: {exc}")
@@ -305,6 +313,10 @@ def collect(conn, *, dry_run: bool = False, start: str = "1990-01-01") -> FetchR
     if failed:
         issues.extend(failed)
 
+    # 계절조정 검증은 한 줄로 요약한다. 전부 통과면 참고 사항이고,
+    # 숫자가 어긋나면(= 검증 전에 다른 이유로 실패한 지표가 있으면) 그 자체가 눈에 띈다.
+    notes = [f"계절조정 검증 {sa_ok}/{sa_required} 통과"] if sa_required else []
+
     ok = len(failed) < len(all_fred_series())
     return FetchResult(
         source=SOURCE,
@@ -314,4 +326,5 @@ def collect(conn, *, dry_run: bool = False, start: str = "1990-01-01") -> FetchR
                 f"관측치 {total}건, 개정 감지 {revised}건"
                 + (f", 출처 교체 {resourced}건" if resourced else ""),
         issues=issues,
+        notes=notes,
     )

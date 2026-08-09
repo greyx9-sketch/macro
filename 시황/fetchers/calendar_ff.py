@@ -204,14 +204,17 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
         conn.commit()
 
     # --- 커버리지 보고 -----------------------------------------------------
-    # ISM 은 매월 1·3영업일에만 나오므로 '이번 주에 없음'이 정상일 수 있다.
-    # 그래도 무엇이 안 잡혔는지는 남겨야 나중에 매핑 오류를 발견할 수 있다.
+    # 우리 22종 중 한 주에 서너 개만 발표되므로 이 목록은 **사실상 항상** 나온다.
+    # 그래서 경고(issues)가 아니라 참고(notes)다 — 예전 문구가 스스로
+    # "(발표주가 아니면 정상)"이라고 변명하고 있었던 것이 신호였다.
+    # 진짜 경고는 아래 suggest_mappings() 가 정확하게 낸다.
+    notes: list[str] = []
     missing = sorted(
         s.ff_title for s in series_mod.ff_mapped_series()
         if s.ff_title and s.id not in matched_ids
     )
     if missing:
-        issues.append("이번 주 피드에 없던 지표(발표주가 아니면 정상): " + ", ".join(missing))
+        notes.append("이번 주 피드에 없던 지표: " + ", ".join(missing))
         # ff_title 오타는 '조용히 예측이 안 잡히는' 형태로 나타나 발견이 어렵다.
         # 비슷한 제목이 **이번 주 피드에** 있으면 오타를 의심해야 하므로 눈에 띄게 알린다.
         feed_titles = sorted({
@@ -228,6 +231,7 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
         rows=mapped,
         message=f"원본 {stored}건 저장, {mapped}건 지표 매핑",
         issues=issues,
+        notes=notes,
     )
 
 

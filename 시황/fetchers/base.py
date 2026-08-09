@@ -77,7 +77,19 @@ class FetchResult:
     ok: bool
     rows: int = 0
     message: str = ""
+
+    # ★ issues 와 notes 를 섞지 말 것 ★
+    #   이 구분이 흐려지는 것이 이 저장소에서 네 번 반복된 실패의 뿌리다.
+    #   판단 기준은 하나다 — **사람이 보고 무언가 할 일이 있는가.**
+    #
+    #   issues  확인이 필요한 것. fetch_log 에 영구 보관되고 사이트에도 나간다.
+    #           넣기 전에 "정상일 때 몇 번 울리는가"를 세어 볼 것.
+    #           매번 울리면 없는 것보다 나쁘다 — 진짜 신호까지 같이 묻힌다.
+    #           (`verify.py --noise` 가 이걸 측정해 준다.)
+    #   notes   참고용. 사람이 할 일이 없는 것 — 검증 통과 확인, 커버리지 보고 등.
+    #           콘솔에만 찍고 fetch_log 에는 남기지 않는다.
     issues: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
     @classmethod
     def failure(cls, source: str, exc: BaseException) -> "FetchResult":

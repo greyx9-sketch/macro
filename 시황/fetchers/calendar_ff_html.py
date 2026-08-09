@@ -397,4 +397,6 @@ def collect(conn, *, dry_run: bool = False) -> FetchResult:
         message=f"{via} 경로, 원본 {stored}건 · 매핑 {mapped}건 · "
                 f"매핑 실제값 {with_actual}건 · 페이지 전체 {detail}",
         issues=issues,
+        # 판정 근거를 콘솔에 한 번 더 남긴다. 경고가 안 뜬 이유를 되짚을 때 쓴다.
+        notes=[f"구조 판정 표본: 지난 이벤트 {past}건 · 실제값 {past_with_actual}건"],
     )
