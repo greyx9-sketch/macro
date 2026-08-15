@@ -175,7 +175,12 @@ def periods_behind(series: Series, latest_ref: Optional[str], today: str) -> Opt
     if series.frequency == "daily":
         return days / span
     # 발표 지연은 정상이다. 지표별 지연을 빼고 남은 것만 '밀린 것' 으로 센다.
-    days -= series.ref_lag_months * 30.44
+    #
+    # 지연은 두 겹이다. 발표 자체가 늦는 것(JOLTS: 2개월 뒤 발표)과,
+    # 발표는 제때 됐는데 **우리가 쓰는 소스가 늦게 내보내는 것**(미시간대: FRED 가
+    # 원 제공자 요청으로 한 달 뒤 공개)은 다른 현상인데 결과는 똑같이 '뒤처져 보인다'.
+    # 둘을 한 필드로 겸하면 한쪽이 반드시 오판된다.
+    days -= (series.ref_lag_months + series.source_lag_months) * 30.44
     return max(0.0, days / span)
 
 
@@ -199,9 +204,10 @@ def check_staleness(
     if behind is None or behind < STALE_PERIODS:
         return None
     unit = {"monthly": "개월", "quarterly": "분기", "weekly": "주"}[series.frequency]
+    lag = series.ref_lag_months + series.source_lag_months
     return Issue(
         series.id, latest_ref, "stale",
-        f"발표 지연({series.ref_lag_months}개월)을 감안해도 {behind:.1f}{unit}치가 "
+        f"발표·공개 지연({lag}개월)을 감안해도 {behind:.1f}{unit}치가 "
         f"밀려 있습니다 — 수집이 끊겼는지 확인이 필요합니다",
     )
 

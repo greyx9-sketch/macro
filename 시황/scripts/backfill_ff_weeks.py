@@ -18,6 +18,10 @@
 6년치가 약 150주다. 전 주를 받으면 5배가 되는데, 나머지 계열의 실제값은
 FRED 가 권위 소스라 얻을 게 거의 없다.
 
+그 대가로 **월 중순·말일 발표는 이 규칙에 구조적으로 안 걸린다.** 실제로 미시간대
+(예비치 중순 · 확정치 말일) 2026-07 이 그렇게 빠졌다. 그런 구멍은 자동 생성 규칙을
+넓히지 말고 `--weeks` 로 해당 주를 콕 집어 받는다 — 규칙을 넓히면 매번 5배를 받게 된다.
+
 지키는 것
 ---------
 - 요청 사이 `SLEEP` 초 이상 쉰다. 한 번에 몰아 받지 않는다.
@@ -30,6 +34,9 @@ FRED 가 권위 소스라 얻을 게 거의 없다.
 ------
     python scripts/backfill_ff_weeks.py --from 2020-01 --dry-run
     python scripts/backfill_ff_weeks.py --from 2020-01
+
+    # 특정 주만 (월요일 날짜). 이미 이벤트가 들어와 있는 주는 --force 가 필요하다.
+    python scripts/backfill_ff_weeks.py --weeks 2026-07-13,2026-07-27 --force
 """
 
 from __future__ import annotations
@@ -68,6 +75,26 @@ def target_weeks(start: date, end: date) -> list[date]:
     return out
 
 
+def explicit_weeks(spec: str) -> list[date]:
+    """'2026-07-13,2026-07-27' -> 그 주의 월요일 목록.
+
+    월요일이 아닌 날짜를 줘도 그 날이 속한 주의 월요일로 맞춘다 —
+    발표일(7/17·7/31)을 그대로 붙여 넣는 쪽이 사람에게 자연스럽기 때문이다.
+    """
+    out: list[date] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        d = date.fromisoformat(part)
+        monday = d - timedelta(days=d.weekday())
+        if monday not in out:
+            out.append(monday)
+    if not out:
+        raise ValueError("--weeks 에 유효한 날짜가 없습니다")
+    return sorted(out)
+
+
 def already_have(conn, monday: date) -> bool:
     """그 주의 원본 이벤트를 이미 받아 뒀는가."""
     lo = monday.isoformat()
@@ -86,13 +113,17 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="저장하지 않고 확인만")
     ap.add_argument("--limit", type=int, default=0, help="이번 실행에서 받을 최대 주 수")
     ap.add_argument("--force", action="store_true", help="이미 받은 주도 다시 받는다")
+    ap.add_argument("--weeks", default=None,
+                    help="특정 주만 받는다. 날짜를 쉼표로 (YYYY-MM-DD). --from/--to 를 무시한다")
     args = ap.parse_args()
 
-    start = date(int(args.start[:4]), int(args.start[5:7]), 1)
-    end = date.today() if not args.end else date(int(args.end[:4]), int(args.end[5:7]), 28)
-
     conn = db_mod.connect()
-    weeks = target_weeks(start, end)
+    if args.weeks:
+        weeks = explicit_weeks(args.weeks)
+    else:
+        start = date(int(args.start[:4]), int(args.start[5:7]), 1)
+        end = date.today() if not args.end else date(int(args.end[:4]), int(args.end[5:7]), 28)
+        weeks = target_weeks(start, end)
     todo = [w for w in weeks if args.force or not already_have(conn, w)]
     if args.limit:
         todo = todo[: args.limit]

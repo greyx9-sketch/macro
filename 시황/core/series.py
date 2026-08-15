@@ -55,6 +55,19 @@ class Series:
     #   'div1000'  /1000 (건 -> 천, 천 -> 백만)
     transform: Optional[str] = None
 
+    # 권위 소스(FRED/ECOS)가 있는데도 캘린더 실제값으로 **빈 관측치**를 채울 것인가.
+    #
+    # 기본은 False 다. 권위 소스는 전체 정밀도와 최초발표값(vintage)을 주는데
+    # 캘린더는 반올림된 헤드라인만 주므로, 둘 다 있으면 권위 소스가 이겨야 한다.
+    #
+    # 미시간대만 예외다. FRED 가 **원 제공자 요청으로 한 달 늦게 공개한다** —
+    # fred.stlouisfed.org/series/UMCSENT 원문 "At the request of the source,
+    # the data is delayed by 1 month". 즉 7월 조사값은 8월 말에야 FRED 에 뜬다.
+    # 그동안 차트·스파크라인·정체감지가 통째로 한 달 뒤처지는데, 같은 값이
+    # 캘린더에는 발표 당일 이미 들어와 있다. 없는 것보다는 반올림된 값이 낫다.
+    # 한 달 뒤 FRED 값이 오면 `upsert_observation` 이 알아서 교체한다.
+    obs_from_calendar: bool = False
+
     # 이 계열이 반드시 만족해야 하는 계절조정 상태. 'SA' | 'NSA' | None.
     # 지정하면 수집기가 FRED 계열 메타데이터를 조회해 실제로 그런지 검증하고,
     # 다르면 해당 지표만 실패시킨다. 계절조정 여부는 값을 통째로 바꾸는 선택인데
@@ -90,6 +103,14 @@ class Series:
     # 대부분 1이지만 JOLTS 는 2개월 지연 발표다 — 엑셀에서도 확인된다
     # (발표 2026-08 / 기준 2026-06). 이 값을 틀리면 예측이 엉뚱한 달에 붙는다.
     ref_lag_months: int = 1
+
+    # 소스가 기준시점 대비 몇 개월 늦게 **공개**하는가. `ref_lag_months` 와 다른 값이다.
+    #   ref_lag_months    발표일 -> 기준월 역산용. 캘린더 이벤트를 어느 달에 붙일지.
+    #   source_lag_months 정체 판정용. '언제쯤 들어와 있어야 정상인가'.
+    # 대부분 둘이 같아서 ref_lag_months 하나로 겸해 왔는데, 미시간대에서 갈렸다 —
+    # 캘린더 기준으로는 lag 0(8월 조사를 8월 중순에 발표)인데 FRED 도착은 그 한 달 뒤다.
+    # 겸용으로 두면 정체 감지기가 **정상 상태에서 한 달에 25일쯤 운다**(규칙 7 위반).
+    source_lag_months: int = 0
 
     # 이 지표가 발표 후 개정되는 통상적인 폭(저장 단위 기준).
     # verify.py 가 '매핑 오류'와 '개정 차이'를 구분하는 데 쓴다.
@@ -410,6 +431,13 @@ _SURVEY = [
         ff_title="Revised UoM Consumer Sentiment",
         ff_variants=("Prelim UoM Consumer Sentiment", "UoM Consumer Sentiment"),
         ref_lag_months=0,   # 당월 조사를 당월에 발표한다
+        # ★ 22종 중 유일하게 이 둘을 켠 계열이다 ★
+        # FRED 가 원 제공자 요청으로 한 달 늦게 공개하기 때문이다("delayed by 1 month").
+        # 그래서 (1) 그 사이 빈 칸은 캘린더로 메우고, (2) 정체 판정에서 그 지연을 빼 준다.
+        # 둘 중 하나만 해서는 부족하다 — (1)만 하면 캘린더가 끊겼을 때 경보가 다시 상시화되고,
+        # (2)만 하면 차트가 계속 한 달 뒤처진다.
+        obs_from_calendar=True,
+        source_lag_months=1,
         higher_is_better=True,
         note="가계 심리. 예비치(중순)와 확정치(말일)로 같은 달을 두 번 발표한다.",
     ),

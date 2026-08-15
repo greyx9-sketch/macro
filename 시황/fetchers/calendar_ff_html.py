@@ -259,9 +259,41 @@ def fetch_week_html(week: Optional[str] = None) -> tuple[str, str]:
 # 저장
 # ---------------------------------------------------------------------------
 def _existing_release(conn, series_id: str, ref_date: str):
+    # source·release_date 까지 읽는 이유는 '누가 언제 쓴 값인가' 로 갱신 여부를 가르기 때문이다.
+    # store_week() 의 supersedes() 주석 참조.
     return conn.execute(
-        "SELECT actual, forecast, previous FROM releases"
+        "SELECT actual, forecast, previous, source, release_date FROM releases"
         " WHERE series_id = ? AND ref_date = ?",
+        (series_id, ref_date),
+    ).fetchone()
+
+
+def _supersedes(old, new_release_dt: datetime) -> bool:
+    """저장된 실제값을 이번 이벤트가 갱신해도 되는가.
+
+    조건은 둘 다 참일 때다.
+      1) 저장된 값을 **캘린더 자신이** 썼다. 권위 소스(FRED·ECOS)나 엑셀이 쓴 값은 못 건드린다.
+      2) 이번 발표가 저장된 발표보다 **나중**이다. 같은 발표를 다시 긁은 것은 갱신이 아니다.
+
+    미시간대 예비치(중순) → 확정치(말일)가 이 규칙으로 통과한다.
+    발표 시각은 오프셋이 섞여 있어(EDT/EST) 문자열 비교가 아니라 datetime 으로 비교한다.
+    """
+    if old["source"] != FF_SOURCE:
+        return False
+    stored = old["release_date"]
+    if not stored:
+        return False
+    try:
+        return datetime.fromisoformat(stored) < new_release_dt
+    except (ValueError, TypeError):
+        # 엑셀 유래처럼 날짜만 있으면 파싱은 되어도 naive 라 비교에서 TypeError 가 난다.
+        # 어느 쪽이든 '나중인지 확신할 수 없다' 이므로 안전한 쪽 = 안 덮는다.
+        return False
+
+
+def _existing_observation(conn, series_id: str, ref_date: str):
+    return conn.execute(
+        "SELECT value, source FROM observations WHERE series_id = ? AND ref_date = ?",
         (series_id, ref_date),
     ).fetchone()
 
@@ -313,11 +345,19 @@ def store_week(
         old = _existing_release(conn, s.id, ref_date) if (authoritative or fill_only) else None
 
         if old is not None:
-            if authoritative and old["actual"] is not None:
+            # ★ 캘린더가 쓴 값은 캘린더가 고칠 수 있다 ★
+            #   원래는 'actual 이 이미 있으면 무조건 막는다' 였는데, 그러면 같은 기준월을
+            #   두 번 발표하는 지표에서 **먼저 온 값이 영구히 이긴다.** 미시간대가 그렇다 —
+            #   예비치(중순) 54.4 가 박히면 확정치(말일) 55.2 가 영원히 못 들어온다.
+            #   백필도 어느 주를 먼저 돌리느냐로 결과가 갈렸다.
+            #
+            #   그래서 판정 기준을 '값이 있는가' 에서 '누가 언제 쓴 값인가' 로 옮긴다.
+            #   권위 소스(FRED·ECOS)가 쓴 값은 여전히 못 건드린다 — JOLTS 사고를 막는 건 그쪽이다.
+            if old["actual"] is not None and not _supersedes(old, dt):
                 a = None
             if fill_only:
-                if old["actual"] is not None:
-                    a = None
+                # 예측·이전은 발표 당시 컨센서스라 나중 렌더링 값으로 덮으면 안 된다(규칙 2).
+                # 여기엔 supersede 예외를 두지 않는다.
                 if old["forecast"] is not None:
                     f = None
                 if old["previous"] is not None:
@@ -336,8 +376,18 @@ def store_week(
             # 권위 소스가 없는 지표(= ISM 2종)는 여기서 관측치까지 채운다.
             # releases 에만 넣으면 차트·스파크라인·맥락 계산이 쓰는 observations 가
             # 엑셀 백필 시점에 멈춰 버린다. 조건은 import_excel.py 와 **같은 규칙**이다.
-            if s.fred_id is None and s.ecos_stat is None and a is not None:
-                db_mod.upsert_observation(conn, s.id, ref_date, a, FF_SOURCE)
+            #
+            # `obs_from_calendar` 계열(= 미시간대)은 권위 소스가 있는데도 여기 들어온다.
+            # FRED 가 한 달 늦게 공개하는 동안 차트가 비어 있기 때문이다(core/series.py 주석).
+            # 다만 **이미 있는 관측치를 아무 때나 덮지는 않는다** — release 쪽과 같은 규칙으로
+            # 빈 칸이거나 캘린더 자신이 쓴 값일 때만 쓴다. FRED 값이 들어온 칸은 그대로 둔다.
+            if a is not None:
+                if s.fred_id is None and s.ecos_stat is None:
+                    db_mod.upsert_observation(conn, s.id, ref_date, a, FF_SOURCE)
+                elif s.obs_from_calendar:
+                    prev_obs = _existing_observation(conn, s.id, ref_date)
+                    if prev_obs is None or prev_obs["source"] == FF_SOURCE:
+                        db_mod.upsert_observation(conn, s.id, ref_date, a, FF_SOURCE)
         mapped += 1
         if a is not None:
             with_actual += 1
