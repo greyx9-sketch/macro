@@ -1,8 +1,4 @@
 source,started_at,finished_at,status,rows,message
-cds,2026-08-01T18:36:48+00:00,2026-08-01T18:36:57+00:00,ok,8311,"2/2 국가 수집, 8311건"
-forexfactory,2026-08-01T19:12:19+00:00,2026-08-01T19:12:19+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
-forexfactory,2026-08-01T19:13:31+00:00,2026-08-01T19:13:32+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
-fred,2026-08-01T19:13:32+00:00,2026-08-01T19:13:44+00:00,ok,21269,"12/12 계열, 관측치 21269건, 개정 감지 0건 | PPI 지수: 계절조정 'SA' 확인됨"
 ecos,2026-08-01T19:13:44+00:00,2026-08-01T19:13:54+00:00,ok,9707,"관측치 9707건, 금리 변경 60회"
 cds,2026-08-01T19:13:54+00:00,2026-08-01T19:14:28+00:00,ok,8311,"2/2 국가 수집, 8311건"
 forexfactory,2026-08-01T19:25:13+00:00,2026-08-01T19:25:13+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
@@ -199,3 +195,7 @@ forexfactory_html,2026-08-15T03:57:44+00:00,2026-08-15T03:57:45+00:00,ok,0,"http
 fred,2026-08-15T03:57:45+00:00,2026-08-15T03:58:06+00:00,ok,22840,"17/17 계열, 관측치 22840건, 개정 감지 0건"
 ecos,2026-08-15T03:58:06+00:00,2026-08-15T03:58:15+00:00,ok,9720,"관측치 9720건, 금리 변경 60회"
 cds,2026-08-15T03:58:15+00:00,2026-08-15T03:58:24+00:00,ok,8337,"2/2 국가 수집, 8337건"
+forexfactory,2026-08-15T05:33:23+00:00,2026-08-15T05:33:24+00:00,ok,4,"원본 74건 저장, 4건 지표 매핑"
+forexfactory_html,2026-08-15T05:33:24+00:00,2026-08-15T05:33:24+00:00,ok,0,"http 경로, 원본 77건 · 매핑 4건 · 매핑 실제값 0건 · 페이지 전체 지난 이벤트 77건 중 실제값 64건"
+forexfactory,2026-08-15T06:01:14+00:00,2026-08-15T06:01:15+00:00,ok,4,"원본 74건 저장, 4건 지표 매핑"
+forexfactory_html,2026-08-15T06:01:15+00:00,2026-08-15T06:01:15+00:00,ok,0,"http 경로, 원본 77건 · 매핑 4건 · 매핑 실제값 0건 · 페이지 전체 지난 이벤트 77건 중 실제값 64건"
