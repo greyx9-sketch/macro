@@ -298,6 +298,38 @@ def _existing_observation(conn, series_id: str, ref_date: str):
     ).fetchone()
 
 
+def _observation_fill(conn, s, ref_date: str, a, a_raw, old_release, dt: datetime):
+    """이 이벤트의 실제값을 `observations` 에 써야 하는가. 쓸 값 또는 None.
+
+    두 부류가 여기 들어온다.
+      - 권위 소스가 **없는** 지표(ISM 2종). 캘린더가 유일한 실제값 경로다.
+        조건은 `import_excel.py` 와 같은 규칙이고, 예전부터 하던 일이다.
+      - `obs_from_calendar` 지표(미시간대). 권위 소스가 있지만 한 달 늦게 온다.
+
+    후자에는 관측치 자신의 가드를 건다 — **빈 칸이거나 캘린더가 쓴 값일 때만** 쓴다.
+    FRED 가 채운 칸은 건드리지 않는다(반올림된 헤드라인으로 정밀값을 깎지 않는다).
+    캘린더가 쓴 값을 갱신할 때는 release 쪽과 **같은 기준**을 쓴다 — 더 나중 발표일 때만.
+    그래야 백필을 역순으로 돌려도 예비치가 확정치를 덮어쓰지 않는다.
+    """
+    if s.fred_id is None and s.ecos_stat is None:
+        # ISM 2종. **가드를 통과한 `a`** 를 쓴다 — 예전 동작 그대로다.
+        # 여기서 `a_raw` 로 바꾸면 백필 재실행이 엑셀에서 온 ISM 관측치를
+        # 캘린더 값으로 덮기 시작한다. 그건 이번 변경의 범위가 아니다.
+        return a
+    if not s.obs_from_calendar or a_raw is None:
+        return None
+
+    prev_obs = _existing_observation(conn, s.id, ref_date)
+    if prev_obs is None:
+        return a_raw
+    if prev_obs["source"] != FF_SOURCE:
+        return None
+    # 캘린더가 쓴 값이다. 발표가 더 나중일 때만 갱신한다.
+    if old_release is None or _supersedes(old_release, dt):
+        return a_raw
+    return None
+
+
 def store_week(
     conn, days: list[dict], *, dry_run: bool = False, fill_only: bool = False
 ) -> tuple[int, int, int]:
@@ -333,7 +365,7 @@ def store_week(
         if s is None:
             continue
         ref_date = derive_ref_date(s, dt)
-        a = to_series_unit(s.unit, parse_raw_number(actual))
+        a = a_raw = to_series_unit(s.unit, parse_raw_number(actual))
         f = to_series_unit(s.unit, parse_raw_number(forecast))
         p = to_series_unit(s.unit, parse_raw_number(previous))
         # 권위 소스가 있는 지표(FRED·ECOS)의 실제값은 **덮지 않는다.**
@@ -363,7 +395,21 @@ def store_week(
                 if old["previous"] is not None:
                     p = None
 
+        # ★ 관측치 채우기는 release 저장과 **별개로** 판정한다 ★
+        #   release 쪽 `a` 는 위에서 가드에 걸려 None 이 됐을 수 있다. 그걸 그대로 쓰면
+        #   '발표값은 이미 저장돼 있는데 관측치만 비어 있는' 칸이 영영 안 메워진다 —
+        #   `obs_from_calendar` 가 생기기 **전에** 저장된 발표가 정확히 그 모양이다.
+        #   그래서 가드 이전 값(`a_raw`)으로 따로 본다. 관측치에는 관측치의 가드가 있다.
+        obs_value = _observation_fill(conn, s, ref_date, a, a_raw, old, dt)
+
+        if a is None and f is None and p is None and obs_value is None:
+            continue
+
+        if not dry_run and obs_value is not None:
+            db_mod.upsert_observation(conn, s.id, ref_date, obs_value, FF_SOURCE)
+
         if a is None and f is None and p is None:
+            mapped += 1
             continue
 
         if not dry_run:
@@ -373,21 +419,6 @@ def store_week(
                 conn, s.id, ref_date, release_date=dt.isoformat(),
                 actual=a, forecast=f, previous=p, source=FF_SOURCE,
             )
-            # 권위 소스가 없는 지표(= ISM 2종)는 여기서 관측치까지 채운다.
-            # releases 에만 넣으면 차트·스파크라인·맥락 계산이 쓰는 observations 가
-            # 엑셀 백필 시점에 멈춰 버린다. 조건은 import_excel.py 와 **같은 규칙**이다.
-            #
-            # `obs_from_calendar` 계열(= 미시간대)은 권위 소스가 있는데도 여기 들어온다.
-            # FRED 가 한 달 늦게 공개하는 동안 차트가 비어 있기 때문이다(core/series.py 주석).
-            # 다만 **이미 있는 관측치를 아무 때나 덮지는 않는다** — release 쪽과 같은 규칙으로
-            # 빈 칸이거나 캘린더 자신이 쓴 값일 때만 쓴다. FRED 값이 들어온 칸은 그대로 둔다.
-            if a is not None:
-                if s.fred_id is None and s.ecos_stat is None:
-                    db_mod.upsert_observation(conn, s.id, ref_date, a, FF_SOURCE)
-                elif s.obs_from_calendar:
-                    prev_obs = _existing_observation(conn, s.id, ref_date)
-                    if prev_obs is None or prev_obs["source"] == FF_SOURCE:
-                        db_mod.upsert_observation(conn, s.id, ref_date, a, FF_SOURCE)
         mapped += 1
         if a is not None:
             with_actual += 1
