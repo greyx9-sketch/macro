@@ -1,9 +1,4 @@
 source,started_at,finished_at,status,rows,message
-cds,2026-08-01T18:04:47+00:00,2026-08-01T18:05:46+00:00,ok,8311,"2/2 국가 수집, 8311건"
-cds,2026-08-01T18:09:15+00:00,2026-08-01T18:10:14+00:00,ok,8311,"2/2 국가 수집, 8311건"
-forexfactory,2026-08-01T18:36:31+00:00,2026-08-01T18:36:31+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
-fred,2026-08-01T18:36:31+00:00,2026-08-01T18:36:40+00:00,ok,21269,"12/12 계열, 관측치 21269건, 개정 감지 0건 | [range] nfp 2020-04-01: -20469.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] nfp 2020-05-01: 2614.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] nfp 2020-06-01: 4631.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-03-21: 2914.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-03-28: 5946.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-04-04: 6137.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-04-11: 4869.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-04-18: 4201.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-04-25: 3446.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-05-02: 2796.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-05-09: 2335.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요 | [range] initial_claims 2020-05-16: 2176.0 가 thousands 상식 범위 [-2000.0, 2000.0] 밖 — 단위 변환 확인 필요"
-ecos,2026-08-01T18:36:40+00:00,2026-08-01T18:36:48+00:00,ok,9707,"관측치 9707건, 금리 변경 60회"
 cds,2026-08-01T18:36:48+00:00,2026-08-01T18:36:57+00:00,ok,8311,"2/2 국가 수집, 8311건"
 forexfactory,2026-08-01T19:12:19+00:00,2026-08-01T19:12:19+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
 forexfactory,2026-08-01T19:13:31+00:00,2026-08-01T19:13:32+00:00,ok,2,"원본 92건 저장, 2건 지표 매핑 | 이번 주 피드에 없던 지표(발표주가 아니면 정상): Average Hourly Earnings m/m, CPI y/y, ISM Manufacturing PMI, ISM Services PMI, JOLTS Job Openings, Non-Farm Employment Change, Unemployment Rate"
@@ -199,3 +194,8 @@ forexfactory_html,2026-08-14T16:33:14+00:00,2026-08-14T16:33:14+00:00,ok,2,"http
 fred,2026-08-14T16:33:14+00:00,2026-08-14T16:33:29+00:00,ok,22839,"17/17 계열, 관측치 22839건, 개정 감지 5건"
 ecos,2026-08-14T16:33:29+00:00,2026-08-14T16:33:36+00:00,ok,9720,"관측치 9720건, 금리 변경 60회"
 cds,2026-08-14T16:33:36+00:00,2026-08-14T16:33:44+00:00,ok,8336,"2/2 국가 수집, 8336건"
+forexfactory,2026-08-15T03:57:44+00:00,2026-08-15T03:57:44+00:00,ok,4,"원본 74건 저장, 4건 지표 매핑"
+forexfactory_html,2026-08-15T03:57:44+00:00,2026-08-15T03:57:45+00:00,ok,0,"http 경로, 원본 74건 · 매핑 4건 · 매핑 실제값 0건 · 페이지 전체 지난 이벤트 74건 중 실제값 62건"
+fred,2026-08-15T03:57:45+00:00,2026-08-15T03:58:06+00:00,ok,22840,"17/17 계열, 관측치 22840건, 개정 감지 0건"
+ecos,2026-08-15T03:58:06+00:00,2026-08-15T03:58:15+00:00,ok,9720,"관측치 9720건, 금리 변경 60회"
+cds,2026-08-15T03:58:15+00:00,2026-08-15T03:58:24+00:00,ok,8337,"2/2 국가 수집, 8337건"
