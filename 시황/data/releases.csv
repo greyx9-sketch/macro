@@ -243,7 +243,7 @@ avg_hourly_earnings_mom,2026-04-01,2026-05-08,0.0016064257028112205,0.003,0.002,
 avg_hourly_earnings_mom,2026-05-01,2026-06-05,0.0021384656508955935,0.003,0.002,fred,2026-08-07T16:35:12+00:00
 avg_hourly_earnings_mom,2026-06-01,2026-07-02,0.0026673779674579734,0.003,0.003,fred,2026-09-04T17:04:31+00:00
 avg_hourly_earnings_mom,2026-07-01,2026-08-07,0.0015961691939343492,0.003,0.003,fred,2026-09-04T17:04:31+00:00
-avg_hourly_earnings_mom,2026-08-01,2026-09-04,0.0026560424966799445,0.003,0.001,fred,2026-09-04T17:04:31+00:00
+avg_hourly_earnings_mom,2026-08-01,2026-09-04,0.0026560424966799445,0.003,0.001,fred,2026-09-05T06:19:34+00:00
 bok_base_rate,2000-01-01,2000-01-01,0.0475,,,ecos,2026-08-01T18:36:48+00:00
 bok_base_rate,2000-02-10,2000-02-10,0.05,,0.0475,ecos,2026-08-01T18:36:48+00:00
 bok_base_rate,2000-10-05,2000-10-05,0.0525,,0.05,ecos,2026-08-01T18:36:48+00:00
@@ -8696,6 +8696,7 @@ cds_us_5y,2026-09-01,2026-09-01,33.28,,33.29,worldgovernmentbonds,2026-09-01T06:
 cds_us_5y,2026-09-02,2026-09-02,33.29,,33.28,worldgovernmentbonds,2026-09-02T17:19:52+00:00
 cds_us_5y,2026-09-03,2026-09-03,33.28,,33.29,worldgovernmentbonds,2026-09-03T06:31:31+00:00
 cds_us_5y,2026-09-04,2026-09-04,32.85,,33.28,worldgovernmentbonds,2026-09-04T06:33:52+00:00
+cds_us_5y,2026-09-05,2026-09-05,32.38,,32.85,worldgovernmentbonds,2026-09-05T06:19:48+00:00
 core_pce_mom,1990-02-01,,0.004849529409776787,,,fred,2026-08-02T08:42:37+00:00
 core_pce_mom,1990-03-01,,0.0048093092083136835,,,fred,2026-08-02T08:42:37+00:00
 core_pce_mom,1990-04-01,,0.002978880074974155,,,fred,2026-08-02T08:42:37+00:00
@@ -10479,7 +10480,7 @@ eci_qoq,2010-04-01,,0.004472271914132353,,,fred,2026-08-02T08:42:46+00:00
 eci_qoq,2010-07-01,,0.0044523597506678225,,,fred,2026-08-02T08:42:46+00:00
 eci_qoq,2010-10-01,,0.004432624113475114,,,fred,2026-08-02T08:42:46+00:00
 eci_qoq,2011-01-01,,0.0061782877316858276,,,fred,2026-08-02T08:42:46+00:00
-eci_qoq,2011-04-01,,0.006140350877193113,,,fred,2026-09-04T17:04:34+00:00
+eci_qoq,2011-04-01,,0.006140350877193113,,,fred,2026-09-05T06:19:37+00:00
 eci_qoq,2011-07-01,,0.0034873583260679464,,,fred,2026-08-02T08:42:46+00:00
 eci_qoq,2011-10-01,,0.004344048653344812,,,fred,2026-08-02T08:42:46+00:00
 eci_qoq,2012-01-01,,0.006055363321799234,,,fred,2026-08-02T08:42:46+00:00
@@ -10554,7 +10555,7 @@ fed_funds_upper,2019-08-01,2019-08-01,0.0225,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2019-09-19,2019-09-19,0.02,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2019-10-31,2019-10-31,0.0175,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2020-01-29,2020-01-29T14:00:00-05:00,0.0175,0.0175,0.0175,forexfactory,2026-08-06T15:51:24+00:00
-fed_funds_upper,2020-03-03,2020-03-03T10:00:00-05:00,0.0125,,0.0175,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2020-03-03,2020-03-03T10:00:00-05:00,0.0125,,0.0175,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2020-03-16,2020-03-16,0.0025,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2020-04-29,2020-04-29T14:00:00-04:00,0.0025,0.0025,0.0025,forexfactory,2026-08-06T15:51:47+00:00
 fed_funds_upper,2020-06-10,2020-06-10T14:00:00-04:00,0.0025,0.0025,0.0025,forexfactory,2026-08-06T15:51:59+00:00
@@ -10564,22 +10565,22 @@ fed_funds_upper,2021-04-28,2021-04-28T14:00:00-04:00,0.0025,0.0025,0.0025,forexf
 fed_funds_upper,2021-07-28,2021-07-28T14:00:00-04:00,0.0025,0.0025,0.0025,forexfactory,2026-08-06T15:53:37+00:00
 fed_funds_upper,2021-11-03,2021-11-03T14:00:00-04:00,0.0025,0.0025,0.0025,forexfactory,2026-08-06T15:54:02+00:00
 fed_funds_upper,2022-03-17,2022-03-17,0.005,,,fred,2026-08-01T19:13:43+00:00
-fed_funds_upper,2022-05-04,2022-05-04T14:00:00-04:00,0.01,0.01,0.005,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2022-05-04,2022-05-04T14:00:00-04:00,0.01,0.01,0.005,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2022-06-16,2022-06-16,0.0175,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2022-07-28,2022-07-28,0.025,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2022-09-22,2022-09-22,0.0325,,,fred,2026-08-01T19:13:43+00:00
-fed_funds_upper,2022-11-02,2022-11-02T14:00:00-04:00,0.04,0.04,0.0325,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2022-11-02,2022-11-02T14:00:00-04:00,0.04,0.04,0.0325,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2022-12-15,2022-12-15,0.045,,,fred,2026-08-01T19:13:43+00:00
-fed_funds_upper,2023-02-01,2023-02-01T14:00:00-05:00,0.0475,0.0475,0.045,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2023-02-01,2023-02-01T14:00:00-05:00,0.0475,0.0475,0.045,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2023-03-23,2023-03-23,0.05,,,fred,2026-08-01T19:13:43+00:00
-fed_funds_upper,2023-05-03,2023-05-03T14:00:00-04:00,0.0525,0.0525,0.05,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2023-05-03,2023-05-03T14:00:00-04:00,0.0525,0.0525,0.05,forexfactory+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2023-07-27,2023-07-27,0.055,,,fred,2026-08-01T19:13:43+00:00
 fed_funds_upper,2023-11-01,2023-11-01T14:00:00-04:00,0.055,0.055,0.055,forexfactory,2026-08-06T15:57:10+00:00
 fed_funds_upper,2024-01-31,2024-01-31T14:00:00-05:00,0.055,0.055,0.055,forexfactory,2026-08-06T15:57:35+00:00
 fed_funds_upper,2024-05-01,2024-05-01T14:00:00-04:00,0.055,0.055,0.055,forexfactory,2026-08-06T15:57:59+00:00
 fed_funds_upper,2024-07-31,2024-07-31T14:00:00-04:00,0.055,0.055,0.055,forexfactory,2026-08-06T15:58:22+00:00
 fed_funds_upper,2024-09-19,2024-09-19,0.05,0.0525,0.055,excel,2026-08-01T17:47:59+00:00
-fed_funds_upper,2024-11-07,2024-11-07T14:00:00-05:00,0.0475,0.0475,0.05,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2024-11-07,2024-11-07T14:00:00-05:00,0.0475,0.0475,0.05,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2024-12-19,2024-12-19,0.045,0.045,0.0475,excel,2026-08-01T17:47:59+00:00
 fed_funds_upper,2025-01-29,2025-01-29T14:00:00-05:00,0.045,0.045,0.045,forexfactory+excel,2026-08-06T16:02:47+00:00
 fed_funds_upper,2025-03-20,2025-03-20,0.045,0.045,0.045,excel,2026-08-01T17:47:59+00:00
@@ -10587,8 +10588,8 @@ fed_funds_upper,2025-05-07,2025-05-07T14:00:00-04:00,0.045,0.045,0.045,forexfact
 fed_funds_upper,2025-06-19,2025-06-19,0.045,0.045,0.045,excel,2026-08-01T17:47:59+00:00
 fed_funds_upper,2025-07-30,2025-07-30T14:00:00-04:00,0.045,0.045,0.045,forexfactory+excel,2026-08-06T16:02:47+00:00
 fed_funds_upper,2025-09-18,2025-09-18,0.0425,0.0425,0.045,excel,2026-08-01T17:47:59+00:00
-fed_funds_upper,2025-10-29,2025-10-29T14:00:00-04:00,0.04,0.04,0.0425,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
-fed_funds_upper,2025-12-10,2025-12-10T14:00:00-05:00,0.0375,0.0375,0.04,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-04T17:05:15+00:00
+fed_funds_upper,2025-10-29,2025-10-29T14:00:00-04:00,0.04,0.04,0.0425,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
+fed_funds_upper,2025-12-10,2025-12-10T14:00:00-05:00,0.0375,0.0375,0.04,forexfactory+excel+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred+fred,2026-09-05T06:19:52+00:00
 fed_funds_upper,2026-01-28,2026-01-28T14:00:00-05:00,0.0375,0.0375,0.0375,forexfactory+excel,2026-08-06T16:02:47+00:00
 fed_funds_upper,2026-03-19,2026-03-19,0.0375,0.0375,0.0375,excel,2026-08-01T17:47:59+00:00
 fed_funds_upper,2026-04-29,2026-04-29T14:00:00-04:00,0.0375,0.0375,0.0375,forexfactory+excel,2026-08-06T16:02:47+00:00
@@ -12652,7 +12653,7 @@ initial_claims,2026-08-01,2026-08-06,199.0,203.0,197.0,fred,2026-08-09T05:29:39+
 initial_claims,2026-08-08,2026-08-13,209.0,202.0,199.0,fred,2026-08-16T04:05:25+00:00
 initial_claims,2026-08-15,2026-08-20,206.0,210.0,209.0,fred,2026-08-23T04:08:23+00:00
 initial_claims,2026-08-22,2026-08-27,203.0,208.0,206.0,fred,2026-08-29T17:22:33+00:00
-initial_claims,2026-08-29,2026-09-03,206.0,205.0,203.0,fred,2026-09-04T17:04:32+00:00
+initial_claims,2026-08-29,2026-09-03,206.0,205.0,203.0,fred,2026-09-05T06:19:35+00:00
 ism_manufacturing,2019-12-01,2020-01-03T10:00:00-05:00,47.2,49.0,48.1,forexfactory,2026-08-06T15:51:17+00:00
 ism_manufacturing,2020-01-01,2020-02-03T10:00:00-05:00,50.9,48.5,47.2,forexfactory,2026-08-06T15:51:28+00:00
 ism_manufacturing,2020-02-01,2020-03-02T10:00:00-05:00,50.1,50.5,50.9,forexfactory,2026-08-06T15:51:36+00:00
@@ -13122,7 +13123,7 @@ jolts,2026-03-01,2026-05-05,6.866,6.86,6.922,fred,2026-08-01T19:13:43+00:00
 jolts,2026-04-01,2026-06-02,7.618,6.86,6.887,fred,2026-08-01T19:13:43+00:00
 jolts,2026-05-01,2026-06-30,7.594,7.28,7.585,fred,2026-08-01T19:13:43+00:00
 jolts,2026-06-01,2026-08-04,7.359,7.44,7.59,fred,2026-08-09T05:29:39+00:00
-jolts,2026-07-01,2026-09-01,7.271,7.33,7.36,fred,2026-09-04T17:04:33+00:00
+jolts,2026-07-01,2026-09-01,7.271,7.33,7.36,fred,2026-09-05T06:19:36+00:00
 nfp,1990-01-01,1990-02-02,,,,fred,2026-08-01T19:13:38+00:00
 nfp,1990-02-01,1990-03-09,240.0,,,fred,2026-08-01T19:22:12+00:00
 nfp,1990-03-01,1990-04-06,204.0,,,fred,2026-08-01T19:22:12+00:00
@@ -13562,7 +13563,7 @@ nfp,2026-04-01,2026-05-08,148.0,65.0,185.0,fred,2026-08-01T19:22:12+00:00
 nfp,2026-05-01,2026-06-05,63.0,85.0,179.0,fred,2026-08-07T16:35:10+00:00
 nfp,2026-06-01,2026-07-02,31.0,114.0,129.0,fred,2026-09-04T17:04:29+00:00
 nfp,2026-07-01,2026-08-07,21.0,85.0,57.0,fred,2026-09-04T17:04:29+00:00
-nfp,2026-08-01,2026-09-04,162.0,55.0,-23.0,fred,2026-09-04T17:04:29+00:00
+nfp,2026-08-01,2026-09-04,162.0,55.0,-23.0,fred,2026-09-05T06:19:32+00:00
 pce_yoy,1991-01-01,,0.04481410004611219,,,fred,2026-08-01T19:13:36+00:00
 pce_yoy,1991-02-01,,0.040757681386135225,,,fred,2026-08-01T19:13:36+00:00
 pce_yoy,1991-03-01,,0.03706401504243373,,,fred,2026-08-01T19:13:36+00:00
@@ -23780,6 +23781,7 @@ t10y2y,2026-08-31,,0.41,,,fred,2026-09-01T06:47:14+00:00
 t10y2y,2026-09-01,,0.4,,,fred,2026-09-02T06:26:28+00:00
 t10y2y,2026-09-02,,0.4,,,fred,2026-09-03T06:31:25+00:00
 t10y2y,2026-09-03,,0.43,,,fred,2026-09-04T06:33:21+00:00
+t10y2y,2026-09-04,,0.41,,,fred,2026-09-05T06:19:43+00:00
 unemployment_rate,1990-01-01,1990-02-02,0.053,,,fred,2026-08-01T19:13:39+00:00
 unemployment_rate,1990-02-01,1990-03-09,0.053,,,fred,2026-08-01T19:13:39+00:00
 unemployment_rate,1990-03-01,1990-04-06,0.052000000000000005,,,fred,2026-08-01T19:13:39+00:00
@@ -24219,7 +24221,7 @@ unemployment_rate,2026-04-01,2026-05-08,0.043,0.043,0.043,fred,2026-08-01T19:13:
 unemployment_rate,2026-05-01,2026-06-05,0.043,0.043,0.043,fred,2026-08-01T19:13:39+00:00
 unemployment_rate,2026-06-01,2026-07-02,0.042,0.043,0.043,fred,2026-08-01T19:13:39+00:00
 unemployment_rate,2026-07-01,2026-08-07,0.040999999999999995,0.042,0.042,fred,2026-08-09T05:29:37+00:00
-unemployment_rate,2026-08-01,2026-09-04,0.040999999999999995,0.040999999999999995,0.040999999999999995,fred,2026-09-04T17:04:30+00:00
+unemployment_rate,2026-08-01,2026-09-04,0.040999999999999995,0.040999999999999995,0.040999999999999995,fred,2026-09-05T06:19:33+00:00
 uom_sentiment,1990-01-01,,93.0,,,fred,2026-08-02T08:42:50+00:00
 uom_sentiment,1990-02-01,,89.5,,,fred,2026-08-02T08:42:50+00:00
 uom_sentiment,1990-03-01,,91.3,,,fred,2026-08-02T08:42:50+00:00
