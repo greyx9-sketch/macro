@@ -10002,6 +10002,7 @@ bok_base_rate,2026-09-15,0.03,ecos,2026-09-15T17:46:00+00:00
 bok_base_rate,2026-09-16,0.03,ecos,2026-09-18T06:40:55+00:00
 bok_base_rate,2026-09-17,0.03,ecos,2026-09-19T06:38:54+00:00
 bok_base_rate,2026-09-18,0.03,ecos,2026-09-20T07:02:58+00:00
+bok_base_rate,2026-09-19,0.03,ecos,2026-09-21T07:11:49+00:00
 cds_kr_5y,2007-12-17,45.5,worldgovernmentbonds,2026-08-01T18:05:45+00:00
 cds_kr_5y,2007-12-18,46.0,worldgovernmentbonds,2026-08-01T18:05:45+00:00
 cds_kr_5y,2007-12-19,45.5,worldgovernmentbonds,2026-08-01T18:05:45+00:00
@@ -15106,6 +15107,7 @@ cds_kr_5y,2026-09-16,21.31,worldgovernmentbonds,2026-09-16T17:44:53+00:00
 cds_kr_5y,2026-09-17,21.33,worldgovernmentbonds,2026-09-17T17:45:34+00:00
 cds_kr_5y,2026-09-18,21.1,worldgovernmentbonds,2026-09-18T17:12:16+00:00
 cds_kr_5y,2026-09-19,21.1,worldgovernmentbonds,2026-09-19T16:48:43+00:00
+cds_kr_5y,2026-09-20,21.1,worldgovernmentbonds,2026-09-21T07:12:20+00:00
 cds_us_5y,2017-04-16,21.1,worldgovernmentbonds,2026-08-01T18:05:16+00:00
 cds_us_5y,2017-04-17,21.1,worldgovernmentbonds,2026-08-01T18:05:16+00:00
 cds_us_5y,2017-04-18,21.6,worldgovernmentbonds,2026-08-01T18:05:16+00:00
@@ -18399,6 +18401,7 @@ cds_us_5y,2026-09-16,31.94,worldgovernmentbonds,2026-09-16T06:47:06+00:00
 cds_us_5y,2026-09-17,31.93,worldgovernmentbonds,2026-09-17T06:40:35+00:00
 cds_us_5y,2026-09-18,32.39,worldgovernmentbonds,2026-09-18T17:12:12+00:00
 cds_us_5y,2026-09-19,32.39,worldgovernmentbonds,2026-09-19T06:39:22+00:00
+cds_us_5y,2026-09-21,32.39,worldgovernmentbonds,2026-09-21T07:11:53+00:00
 core_pce_mom,1990-01-01,,fred,2026-08-02T08:42:37+00:00
 core_pce_mom,1990-02-01,0.004849529409776787,fred,2026-08-02T08:42:37+00:00
 core_pce_mom,1990-03-01,0.0048093092083136835,fred,2026-08-02T08:42:37+00:00
