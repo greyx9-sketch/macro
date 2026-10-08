@@ -15141,6 +15141,7 @@ cds_kr_5y,2026-10-01,22.37,worldgovernmentbonds,2026-10-01T19:02:01+00:00
 cds_kr_5y,2026-10-02,22.8,worldgovernmentbonds,2026-10-02T18:41:13+00:00
 cds_kr_5y,2026-10-03,22.8,worldgovernmentbonds,2026-10-03T17:37:37+00:00
 cds_kr_5y,2026-10-05,24.83,worldgovernmentbonds,2026-10-06T08:09:18+00:00
+cds_kr_5y,2026-10-08,23.83,worldgovernmentbonds,2026-10-08T19:25:41+00:00
 cds_us_5y,2017-04-16,21.1,worldgovernmentbonds,2026-08-01T18:05:16+00:00
 cds_us_5y,2017-04-17,21.1,worldgovernmentbonds,2026-08-01T18:05:16+00:00
 cds_us_5y,2017-04-18,21.6,worldgovernmentbonds,2026-08-01T18:05:16+00:00
@@ -26816,6 +26817,7 @@ fed_funds_upper,2026-10-04,0.04,fred,2026-10-04T17:49:44+00:00
 fed_funds_upper,2026-10-05,0.04,fred,2026-10-05T21:14:56+00:00
 fed_funds_upper,2026-10-06,0.04,fred,2026-10-06T19:02:58+00:00
 fed_funds_upper,2026-10-07,0.04,fred,2026-10-07T19:34:39+00:00
+fed_funds_upper,2026-10-08,0.04,fred,2026-10-08T19:25:29+00:00
 gdp_qoq,1990-01-01,0.044000000000000004,fred,2026-08-02T08:42:47+00:00
 gdp_qoq,1990-04-01,0.015,fred,2026-08-02T08:42:47+00:00
 gdp_qoq,1990-07-01,0.003,fred,2026-08-02T08:42:47+00:00
@@ -28878,7 +28880,8 @@ initial_claims,2026-08-29,207.0,fred,2026-09-10T17:10:16+00:00
 initial_claims,2026-09-05,207.0,fred,2026-09-24T17:56:53+00:00
 initial_claims,2026-09-12,198.0,fred,2026-09-24T17:56:53+00:00
 initial_claims,2026-09-19,198.0,fred,2026-10-01T19:01:39+00:00
-initial_claims,2026-09-26,197.0,fred,2026-10-01T19:01:39+00:00
+initial_claims,2026-09-26,199.0,fred,2026-10-08T19:25:20+00:00
+initial_claims,2026-10-03,197.0,fred,2026-10-08T19:25:20+00:00
 ism_manufacturing,2019-12-01,47.2,forexfactory,2026-08-06T15:51:17+00:00
 ism_manufacturing,2020-01-01,50.9,forexfactory,2026-08-06T15:51:28+00:00
 ism_manufacturing,2020-02-01,50.1,forexfactory,2026-08-06T15:51:36+00:00
