@@ -327,7 +327,22 @@ def _observation_fill(conn, s, ref_date: str, a, a_raw, old_release, dt: datetim
     # 캘린더가 쓴 값이다. 발표가 더 나중일 때만 갱신한다.
     if old_release is None or _supersedes(old_release, dt):
         return a_raw
+    # 확정치 대기 행(발표일은 이미 이번 발표로 옮겨졌고 실제값은 비어 있음)에 값이 처음 왔다.
+    # `_supersedes()` 는 '더 나중' 만 보므로 같은 시각인 이 경우를 못 잡는다 — 따로 본다.
+    # 이게 없으면 발표 행은 확정치인데 차트는 예비치에 머문다. db.upsert_release 주석 참조.
+    if _awaiting_this_release(old_release, dt):
+        return a_raw
     return None
+
+
+def _awaiting_this_release(old, dt: datetime) -> bool:
+    """저장된 행이 캘린더가 만든 '발표 대기' 행이고, 그 발표가 바로 이번 이벤트인가."""
+    if old["source"] != FF_SOURCE or old["actual"] is not None or not old["release_date"]:
+        return False
+    try:
+        return datetime.fromisoformat(old["release_date"]) == dt
+    except (ValueError, TypeError):
+        return False
 
 
 def store_week(

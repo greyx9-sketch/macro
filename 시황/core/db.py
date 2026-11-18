@@ -145,6 +145,20 @@ def upsert_observation(
 # ---------------------------------------------------------------------------
 # releases
 # ---------------------------------------------------------------------------
+def _is_later(new: Optional[str], old: Optional[str]) -> bool:
+    """`new` 발표 시각이 `old` 보다 확실히 나중인가. 모르면 False (= 안 지운다).
+
+    오프셋이 섞여 있어(EDT/EST) 문자열이 아니라 datetime 으로 비교한다.
+    한쪽이 날짜만 있으면(naive) 비교가 TypeError 라 '확신 없음' 으로 본다.
+    """
+    if not new or not old:
+        return False
+    try:
+        return datetime.fromisoformat(old) < datetime.fromisoformat(new)
+    except (ValueError, TypeError):
+        return False
+
+
 def upsert_release(
     conn: sqlite3.Connection,
     series_id: str,
@@ -164,7 +178,7 @@ def upsert_release(
     """
     now = utcnow()
     row = conn.execute(
-        "SELECT release_date, actual, forecast, previous FROM releases"
+        "SELECT release_date, actual, forecast, previous, source FROM releases"
         " WHERE series_id = ? AND ref_date = ?",
         (series_id, ref_date),
     ).fetchone()
@@ -183,9 +197,31 @@ def upsert_release(
             return old
         return new
 
+    # ★ 발표일을 뒤로 옮기면서 실제값을 안 주면, 저장된 실제값은 '이전 발표'의 것이다 ★
+    #   미시간대는 같은 기준월을 예비치(중순)·확정치(말일)로 두 번 발표한다.
+    #   확정치 주가 시작되면 캘린더는 '11-20, 실제값 없음, 예측 51.7' 을 준다.
+    #   pick() 만 쓰면 발표일만 11-20 으로 바뀌고 예비치 51.0 이 그대로 남아
+    #   **아직 오지 않은 발표에 값이 있는 행**이 된다(2026-11-19 실제로 사이트에 노출).
+    #   더 나쁜 건 그 다음이다 — 발표일이 이미 11-20 이라 확정치가 와도 `_supersedes()`
+    #   (더 나중 발표만 갱신) 를 통과 못 해 **확정치가 영구히 안 들어온다**(2026-10 이 48.0 대신 46.3).
+    #
+    #   그래서 같은 소스가 자기 행의 발표일을 **더 나중으로** 옮기는데 실제값이 없으면
+    #   실제값을 비운다(발표 대기). 관측치(observations)는 따로라 예비치가 차트에 그대로 남는다.
+    #   소스가 다르면 손대지 않는다 — FRED 가 쓴 값은 캘린더가 못 지운다(규칙 3).
+    if (
+        actual is None
+        and row["actual"] is not None
+        and row["source"] == source
+        and _is_later(release_date, row["release_date"])
+    ):
+        actual = None
+        clear_actual = True
+    else:
+        clear_actual = False
+
     merged = (
         pick(release_date, row["release_date"]),
-        pick(actual, row["actual"]),
+        None if clear_actual else pick(actual, row["actual"]),
         pick(forecast, row["forecast"]),
         pick(previous, row["previous"]),
     )
